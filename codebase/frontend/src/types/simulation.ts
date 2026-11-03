@@ -119,3 +119,46 @@ export interface Stage2Result {
   tokens: string[];
   summary: string;
 }
+
+// Stage 3: Multi-Commodity Network Flow Models
+export type AllocationStatus = 'ALLOCATED' | 'SHORTFALL' | 'BOTTLENECK';
+export type RouteType = 'DIRECT_HIGHWAY' | 'INTERMODAL_TRANSSHIPMENT';
+
+export interface AllocationItem {
+  allocation_id: string;
+  source_id: number;
+  source_name: string;
+  target_id: number;
+  target_name: string;
+  product_id: string;
+  quantity: number;
+  modality: Modality;
+  route_type: RouteType;
+  distance_km: number;
+  transit_hours: number;
+  departure_port_name?: string | null;
+  arrival_port_name?: string | null;
+  path_coordinates?: [number, number][];
+  status: AllocationStatus;
+}
+
+export interface FlowEdgeUtilization {
+  corridor_name: string;
+  modality: Modality;
+  capacity_units: number;
+  flow_units: number;
+  utilization_pct: number;
+  is_saturated: boolean;
+}
+
+export interface Stage3Result {
+  is_flow_feasible: boolean;
+  total_demand_satisfied: number;
+  total_demand_requested: number;
+  satisfaction_rate_pct: number;
+  allocations: AllocationItem[];
+  corridor_utilizations: FlowEdgeUtilization[];
+  bottlenecks: string[];
+  tokens: string[];
+  summary: string;
+}

@@ -1,4 +1,4 @@
-import { SimulationRequest, Stage1Result, Stage2Result } from '../types/simulation';
+import { SimulationRequest, Stage1Result, Stage2Result, Stage3Result } from '../types/simulation';
 
 const API_BASE_URL = 'http://127.0.0.1:8000';
 
@@ -53,6 +53,20 @@ export async function evaluateReachability(request: SimulationRequest): Promise<
   });
   if (!res.ok) {
     throw new Error(`Reachability evaluation failed: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function evaluateNetworkFlow(request: SimulationRequest): Promise<Stage3Result> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/flow`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
+  if (!res.ok) {
+    throw new Error(`Network flow evaluation failed: ${res.statusText}`);
   }
   return res.json();
 }

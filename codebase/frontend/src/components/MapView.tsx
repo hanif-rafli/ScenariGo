@@ -9,6 +9,8 @@ interface MapViewProps {
   warehouses: Warehouse[];
   stores: Store[];
   edges?: NetworkEdge[];
+  highlightedPath?: [number, number][];
+  highlightLabel?: string;
 }
 
 // Custom monochrome high-contrast DivIcons
@@ -48,7 +50,13 @@ const createStoreIcon = () => {
   });
 };
 
-export const MapView: React.FC<MapViewProps> = ({ warehouses, stores, edges = [] }) => {
+export const MapView: React.FC<MapViewProps> = ({
+  warehouses,
+  stores,
+  edges = [],
+  highlightedPath,
+  highlightLabel,
+}) => {
   const defaultCenter: [number, number] = [3.8, 108.5];
   const defaultZoom = 6;
 
@@ -65,6 +73,27 @@ export const MapView: React.FC<MapViewProps> = ({ warehouses, stores, edges = []
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+
+        {/* Hover-Highlighted Active Commodity Allocation Flow */}
+        {highlightedPath && highlightedPath.length > 0 && (
+          <Polyline
+            positions={highlightedPath}
+            pathOptions={{
+              color: '#ffffff',
+              weight: 5.0,
+              opacity: 0.95,
+              dashArray: '4, 4',
+            }}
+          >
+            {highlightLabel && (
+              <Popup>
+                <div className="p-1 font-mono text-white text-xs font-bold">
+                  {highlightLabel}
+                </div>
+              </Popup>
+            )}
+          </Polyline>
+        )}
 
         {/* Network Graph Edges with Chromatic High-Contrast Palette */}
         {edges.map((edge, idx) => {
