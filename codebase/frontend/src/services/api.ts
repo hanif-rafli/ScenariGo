@@ -1,0 +1,44 @@
+import { SimulationRequest, Stage1Result } from '../types/simulation';
+
+const API_BASE_URL = 'http://127.0.0.1:8000';
+
+export async function checkBackendHealth(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/health`);
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data.status === 'ok';
+  } catch {
+    return false;
+  }
+}
+
+export async function fetchBobStationeryPreset(): Promise<SimulationRequest> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/presets/bob-stationery`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch Bob's Stationery preset: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchDeficitPreset(): Promise<SimulationRequest> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/presets/deficit-sample`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch deficit preset: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function evaluateFeasibility(request: SimulationRequest): Promise<Stage1Result> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/feasibility`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
+  if (!res.ok) {
+    throw new Error(`Feasibility evaluation failed: ${res.statusText}`);
+  }
+  return res.json();
+}
