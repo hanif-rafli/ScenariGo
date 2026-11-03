@@ -1,13 +1,14 @@
 import React from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
-import { Warehouse, Store } from '../types/simulation';
+import { Warehouse, Store, NetworkEdge } from '../types/simulation';
 import { Building2, Store as StoreIcon, Anchor } from 'lucide-react';
 import { renderToString } from 'react-dom/server';
 
 interface MapViewProps {
   warehouses: Warehouse[];
   stores: Store[];
+  edges?: NetworkEdge[];
 }
 
 // Custom monochrome high-contrast DivIcons
@@ -15,7 +16,7 @@ const createWarehouseIcon = (isPort: boolean) => {
   const iconHtml = renderToString(
     <div className={`flex items-center justify-center w-8 h-8 rounded-full shadow-2xl transition-transform hover:scale-110 ${
       isPort
-        ? 'bg-white text-black border-2 border-white ring-2 ring-neutral-700'
+        ? 'bg-white text-black border-2 border-white ring-2 ring-cyan-400'
         : 'bg-white text-black border-2 border-neutral-300'
     }`}>
       {isPort ? <Anchor className="w-4 h-4 stroke-[2.5]" /> : <Building2 className="w-4 h-4 stroke-[2.5]" />}
@@ -47,24 +48,87 @@ const createStoreIcon = () => {
   });
 };
 
-export const MapView: React.FC<MapViewProps> = ({ warehouses, stores }) => {
-  // Center between Peninsular and Borneo
+export const MapView: React.FC<MapViewProps> = ({ warehouses, stores, edges = [] }) => {
   const defaultCenter: [number, number] = [3.8, 108.5];
   const defaultZoom = 6;
 
   return (
-    <div className="relative w-full h-[560px] rounded-lg overflow-hidden border border-neutral-800 shadow-2xl bg-black">
+    <div className="relative w-full h-[580px] rounded-lg overflow-hidden border border-neutral-800 shadow-2xl bg-black">
       <MapContainer
         center={defaultCenter}
         zoom={defaultZoom}
         scrollWheelZoom={true}
         className="w-full h-full bg-black"
       >
-        {/* Standard OpenStreetMap tiles with CSS dark monochrome inversion (zero API key required) */}
+        {/* Standard OpenStreetMap tiles with CSS dark monochrome inversion */}
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+
+        {/* Network Graph Edges with Chromatic High-Contrast Palette */}
+        {edges.map((edge, idx) => {
+          const isMaritime = edge.modality === 1;
+          const isAir = edge.modality === 2;
+
+          // Color palette: Light Blue for Maritime, Amber for Land, Red for Infeasible
+          const strokeColor = isMaritime ? '#38bdf8' : isAir ? '#c084fc' : '#f59e0b';
+          const dashStyle = isMaritime ? '8, 8' : undefined;
+          const weight = isMaritime ? 3.5 : 2.5;
+
+          const polylineCoords: [number, number][] =
+            edge.path_coordinates && edge.path_coordinates.length > 0
+              ? edge.path_coordinates
+              : [edge.source_coords, edge.target_coords];
+
+          return (
+            <Polyline
+              key={`edge-${idx}-${edge.source_id}-${edge.target_id}`}
+              positions={polylineCoords}
+              pathOptions={{
+                color: strokeColor,
+                weight: weight,
+                dashArray: dashStyle,
+                opacity: 0.85,
+              }}
+            >
+              <Popup>
+                <div className="p-1 min-w-[210px] font-mono text-white text-xs space-y-1">
+                  <div className="font-bold border-b border-neutral-700 pb-1 flex justify-between items-center">
+                    <span>{isMaritime ? 'Maritime Sea Lane' : 'Highway Freight Road'}</span>
+                    <span
+                      className="px-1.5 py-0.5 rounded text-[10px] font-bold"
+                      style={{
+                        backgroundColor: isMaritime ? '#082f49' : '#451a03',
+                        color: strokeColor,
+                        border: `1px solid ${strokeColor}`,
+                      }}
+                    >
+                      {isMaritime ? '[SEA]' : '[LAND]'}
+                    </span>
+                  </div>
+                  <div className="text-neutral-300 pt-1">
+                    {edge.source_name} &harr; {edge.target_name}
+                  </div>
+                  <div className="flex justify-between text-neutral-400 text-[11px]">
+                    <span>Distance:</span>
+                    <span className="text-white font-bold">{edge.distance_km} km</span>
+                  </div>
+                  <div className="flex justify-between text-neutral-400 text-[11px]">
+                    <span>Transit Time:</span>
+                    <span className="text-white font-bold">~{edge.transit_hours} hrs</span>
+                  </div>
+                  {isMaritime && (
+                    <div className="flex justify-between text-neutral-400 text-[11px] border-t border-neutral-800 pt-1">
+                      <span>Carrier Base Fee:</span>
+                      <span className="text-cyan-400 font-bold">MYR {edge.base_fee_myr}</span>
+                    </div>
+                  )}
+                </div>
+              </Popup>
+            </Polyline>
+          );
+        })}
 
         {/* Warehouse Nodes */}
         {warehouses.map((w) => (
@@ -78,7 +142,7 @@ export const MapView: React.FC<MapViewProps> = ({ warehouses, stores }) => {
                 <div className="flex items-center justify-between border-b border-neutral-700 pb-1.5 mb-2">
                   <span className="font-bold text-xs tracking-wide">{w.name}</span>
                   {w.is_port ? (
-                    <span className="text-[10px] px-1 py-0.5 bg-white text-black font-bold rounded">
+                    <span className="text-[10px] px-1.5 py-0.5 bg-cyan-950 text-cyan-300 border border-cyan-700 font-bold rounded">
                       [PORT HUB]
                     </span>
                   ) : (
@@ -149,18 +213,27 @@ export const MapView: React.FC<MapViewProps> = ({ warehouses, stores }) => {
         ))}
       </MapContainer>
 
-      {/* Floating High-Contrast Legend */}
+      {/* Floating Chromatic Map Legend */}
       <div className="absolute bottom-4 right-4 z-[1000] bg-black/95 backdrop-blur border border-neutral-800 p-3 rounded shadow-2xl text-xs font-mono space-y-2">
         <div className="text-[10px] uppercase tracking-wider text-neutral-500 border-b border-neutral-800 pb-1 font-semibold">
-          Node Classification
+          Network Topology Legend
         </div>
+        <div className="flex items-center space-x-2">
+          <div className="w-5 h-0.5 bg-amber-500" />
+          <span className="text-neutral-300">Land Highway Edge</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <div className="w-5 h-0.5 border-t-2 border-dashed border-cyan-400" />
+          <span className="text-neutral-300">Maritime Sea Corridor</span>
+        </div>
+        <div className="h-px bg-neutral-800 my-1" />
         <div className="flex items-center space-x-2">
           <div className="w-3.5 h-3.5 rounded-full bg-white border border-neutral-400" />
           <span className="text-white">Warehouse (Supply)</span>
         </div>
         <div className="flex items-center space-x-2">
-          <div className="w-3.5 h-3.5 rounded-full bg-white ring-2 ring-neutral-700" />
-          <span className="text-white">Port Gateway (Intermodal)</span>
+          <div className="w-3.5 h-3.5 rounded-full bg-white ring-2 ring-cyan-400" />
+          <span className="text-white">Port Gateway</span>
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-3.5 h-3.5 rounded-sm bg-neutral-900 border border-white" />

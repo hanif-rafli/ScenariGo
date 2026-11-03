@@ -13,6 +13,13 @@ from app.models.responses import (
     Stage1Result,
     SimulationRequest,
 )
+from app.models.graph import (
+    Modality,
+    NetworkEdge,
+    ComponentInfo,
+    IntermodalRoute,
+    Stage2Result,
+)
 
 __all__ = [
     "Warehouse",
@@ -26,4 +33,9 @@ __all__ = [
     "FeasibilityToken",
     "Stage1Result",
     "SimulationRequest",
+    "Modality",
+    "NetworkEdge",
+    "ComponentInfo",
+    "IntermodalRoute",
+    "Stage2Result",
 ]
