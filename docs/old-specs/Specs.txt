@@ -1,0 +1,48 @@
+ScenariGo specs.
+I wrote a bit about the project in my personal blog. maybe the following can help you understand the project a bit better:
+https://sinnaungih.vercel.app/post/DUGR5M206gOrZhUFGGNv
+
+
+# High level usage flow:
+1. User chooses snapshot of map where their operations take place.
+2. User places store locations
+2.1. User populates store inventory.
+3. User places warehouse locations.
+3.1. User populates warehouse inventory.
+4. User fills in fleet information.
+
+# Features: 
+## Data Structures and algorithms:
+- no dictionary
+- Network flow, ford fulkerson, residual network [must have]
+- Multigraph Dijkstra [must have]
+
+
+##  Map snapshot:
+what a 'map' includes:
+- country shape
+- major roads
+- sea/air ports
+- sea/air paths
+- cargo train stations and railways. 
+
+
+## Requirements (User POV)
+- to choose a portion of map (topojson, etc.) so I can start planning fleet movement.
+- to receive a report of what items need restocking at which store and optimally from which warehouse so that I can assign the fleet accordingly. 
+
+
+# Thoughts:
+- how can I make this into a meaningful project where I learn about industry-level stuff (idk what the jargon is)? geospatial database? 
+- Tech stack? 
+- is it a last mile distribution? from warehouse to store.
+- what edge would my software have?
+- what should be the form of the product? installable software? web-app? 
+- in real scenarios, it is most likely not a good idea to tell user to populate store inventory individually. Maybe we can have a feature where user can drag and drop a CSV or excel file instead. so we need to design a pipeline for this.
+- what should be the granularity of transport? In my blog, i did say tolls are out of scope. additionally, how detailed should fleet information be? fuel consumption rate may be useful. capacity too. but other things? not so sure.
+
+
+# Project Intention Discussion
+I'm still deciding whether this project should address a market gap or it can simply be a portfolio to showcase my undestanding in data structues and algorithms.
+Maybe you can use the browser skill to evaluate current/existing tools. Then again, since this is a niche assignment-inspired project, I'm not so sure where to start in comparison.
+Maybe it's a lightweight simulation learning tool? (heck man, im so confused)

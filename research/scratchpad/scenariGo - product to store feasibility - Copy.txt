@@ -1,0 +1,124 @@
+UPDATED VERSION OF THE PREVIOUS NETWORK FLOW DESIGN
+
+objective:
+to answer the following questions:
+1) are there enough products to fulfill each store's request?
+2) which product needs to be shipped and from which warehouse?
+
+context: 
+approach 1: using network flow to find feasibility from a store to product level.
+
+
+example: 
+suppose we have the following graph of locations:
+LAND = 0
+AIR/WATER= 1
+
+and it the graph is represented by:
+u -> v(type of travel, distance) and so on.
+
+input graph:
+0 -> 1(0,10) ->6(0,10)
+1 -> 0(0,20)-> 2(0,15)
+2 -> 0(0,15) -> 3(1,100)->7(0,20)
+3 -> 2(1,100) -> 5(0,20) -> 4(0,10)
+4 -> 3(0,10)
+5 -> 3(0,20)-> 8(1,100)
+6 -> 0(0,10)
+7 -> 6(0,25)
+8 -> 5(1,100)
+
+Num_warehouse = 3
+num_stores = 2
+warehouse_locations = [0,3,5] 
+store locations= [1,4]
+
+warehouse_inventory = [[(1,5),(0,5)],]
+
+
+STAGE 1: 
+high level view of request:
+
+STAGE 2:
+structure of the network flow:
+source -> warehouse-product pair layer ->store-product layer -> sink
+
+- warehouse-product pair layer: a pair represents the product stored in a certain warehouse.
+-store-product layer: a pair represents the product that a certain store requested.   
+
+connection and capacity between:
+- FROM source TO warehouse-product: there will be a connection from the source to each one. the capacity in the edge is the amount of products stored in that warehouse
+
+[BFS/DFS is used in the following section, refer to "[TRAVERSAL SECTION]" below]
+-FROM warehouse-product TO store-product: given a warehouse-product pair, there will be a "land connection" made to a store-product pair IF the store is reachable by land and the product matches. There will be a "shipment connection" to a store-product pair if the product matches but is not land-reachable ie. it comes from another "island". the capacity for each connection made is the amount of that product stored in that warehouse.
+
+important note: there must be a distinction between land-reachable and air/water shipment connections.   
+
+- FROM store-product TO sink: there is a connection made from each pair to the sink. the capacity on the edge is the the amount requestewarehouse-productd by that store for that product.
+
+
+[TRAVERSAL SECTION]
+-Used to check the land-reachable locations and Identify subgraphs (islands).
+
+# Approach 1: storing which "island" each vertex is from.
+- in our case, we initialize all vertex's island as None: [None,None,None,None,None,None,None,None,None]
+- We would get the result after some traversals:
+[0,0,0,1,1,1,0,0,2]
+- This may be a modified BFS or DFS. 
+
+- Some things I've considered:
+-- We can definitely make use of the traversal method in each vertex. That is, when we see "5 -> 3(0,20)-> 8(1,100)", we know that from vertex 5 to vertex 8 is an non-land travel.
+
+- What may this approach achieve?
+-- as seen with the resulting array:[0,0,0,1,1,1,0,0,2], we know that there are 3 islands connected by non-land travel. We also have a quick way of checking which island a vertex is located in.
+
+- Contribution to feasibility check:
+-- suppose we have a warehouse-product pair (w0,p0) and a store-prouct pair (s0,p0). We have the following arrays:
+warehouse_locations = [0,3,5] 
+store locations= [1,4]
+
+which means quick access to check the locations of w0 and s0. which is vertex 0 and vertex 1.
+
+Previously, we established a quick checking on the island. We would get island 0 for both vertex. This means they are land-reachable. Which means there will be a connection to the store-product pair with a land-type edge. 
+
+
+
+
+====
+tangent
+
+Question: how do i check the number of product X requested by store Y.
+-assume that all stores are in memory of a fixed array where index is the ID of that store.
+1. access store[y].request = A
+2. access A[X]
+
+but X has to be a fixed array of all products.
+
+lets say we have 4 products.
+each store has a fixed inventory of:
+[0,0,0,0]
+and product ids will make it easy to access request of a certain product.
+
+
+ie. request of product 2 from store 3
+
+store[y].request[3][2] would give the quantity requested for product 2 from store 3.
+
+This means Store is some object with a request attribute.
+
+
+
+
+ 
+
+
+
+
+
+
+ 
+
+
+
+
+
