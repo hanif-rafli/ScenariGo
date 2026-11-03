@@ -63,3 +63,59 @@ export interface SimulationRequest {
   fleet?: FleetConfig;
   budget_cap_myr?: number;
 }
+
+// Stage 2: Topological Reachability & Graph Models
+export type Modality = 0 | 1 | 2; // 0: Land, 1: Maritime, 2: Air
+
+export interface NetworkEdge {
+  source_id: number;
+  target_id: number;
+  source_name: string;
+  target_name: string;
+  source_coords: [number, number];
+  target_coords: [number, number];
+  distance_km: number;
+  modality: Modality;
+  cost_per_kg_myr: number;
+  base_fee_myr: number;
+  transit_hours: number;
+  is_active: boolean;
+  path_coordinates?: [number, number][];
+}
+
+export interface ComponentInfo {
+  component_id: number;
+  name: string;
+  warehouse_ids: number[];
+  store_ids: number[];
+  total_supply: Record<string, number>;
+  total_demand: Record<string, number>;
+  is_self_sufficient: boolean;
+  unmet_demand: Record<string, number>;
+}
+
+export interface IntermodalRoute {
+  source_warehouse_id: number;
+  source_warehouse_name: string;
+  departure_port_id: number;
+  departure_port_name: string;
+  arrival_port_id: number;
+  arrival_port_name: string;
+  target_store_id: number;
+  target_store_name: string;
+  product_id: string;
+  quantity: number;
+  sea_distance_km: number;
+  sea_transit_hours: number;
+  estimated_carrier_cost_myr: number;
+  token_text: string;
+  path_coordinates?: [number, number][];
+}
+
+export interface Stage2Result {
+  components: ComponentInfo[];
+  edges: NetworkEdge[];
+  intermodal_routes: IntermodalRoute[];
+  tokens: string[];
+  summary: string;
+}

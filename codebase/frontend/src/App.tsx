@@ -3,12 +3,14 @@ import { Header } from './components/Header';
 import { MapView } from './components/MapView';
 import { ScenarioControls } from './components/ScenarioControls';
 import { FeasibilityPanel } from './components/FeasibilityPanel';
-import { SimulationRequest, Stage1Result } from './types/simulation';
+import { ReachabilityPanel } from './components/ReachabilityPanel';
+import { SimulationRequest, Stage1Result, Stage2Result } from './types/simulation';
 import {
   checkBackendHealth,
   fetchBobStationeryPreset,
   fetchDeficitPreset,
   evaluateFeasibility,
+  evaluateReachability,
 } from './services/api';
 
 const FALLBACK_BASELINE: SimulationRequest = {
@@ -68,16 +70,24 @@ const FALLBACK_BASELINE: SimulationRequest = {
 export function App() {
   const [scenario, setScenario] = useState<SimulationRequest>(FALLBACK_BASELINE);
   const [feasibilityResult, setFeasibilityResult] = useState<Stage1Result | null>(null);
+  const [reachabilityResult, setReachabilityResult] = useState<Stage2Result | null>(null);
+  const [activeStageTab, setActiveStageTab] = useState<'stage1' | 'stage2'>('stage2');
   const [backendOnline, setBackendOnline] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
 
   const runEvaluation = useCallback(async (targetScenario: SimulationRequest) => {
     setLoading(true);
     try {
-      const result = await evaluateFeasibility(targetScenario);
-      setFeasibilityResult(result);
+      // 1. Stage 1 Global Feasibility Check
+      const stage1 = await evaluateFeasibility(targetScenario);
+      setFeasibilityResult(stage1);
+
+      // 2. Stage 2 Reachability & Graph Partitioning Check
+      const stage2 = await evaluateReachability(targetScenario);
+      setReachabilityResult(stage2);
     } catch (err) {
       console.warn('Backend evaluation failed, evaluating locally in frontend:', err);
+      // Fallback Stage 1 calculation
       const totalDemand: Record<string, number> = {};
       const totalSupply: Record<string, number> = {};
 
@@ -207,26 +217,59 @@ export function App() {
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Map Column (7 cols) */}
           <div className="lg:col-span-7 space-y-2">
             <div className="flex items-center justify-between text-xs uppercase tracking-wider text-neutral-400">
-              <span>Geographic Topology & Hub Locations</span>
-              <span className="text-neutral-600">OpenStreetMap (Dark Inverted)</span>
+              <span>Multi-Modal Network Topology</span>
+              <span className="text-cyan-400 font-bold">
+                {reachabilityResult ? `${reachabilityResult.edges.length} Edges Active` : 'Topological Map'}
+              </span>
             </div>
             <MapView
               warehouses={scenario.warehouses}
               stores={scenario.stores}
+              edges={reachabilityResult?.edges ?? []}
             />
           </div>
 
-          <div className="lg:col-span-5 space-y-2">
-            <div className="flex items-center justify-between text-xs uppercase tracking-wider text-neutral-400">
-              <span>Stage 1 Feasibility Engine</span>
-              <span className="text-neutral-600">O(N) Early Cutoff</span>
+          {/* Audit / Engine Panels Column (5 cols) */}
+          <div className="lg:col-span-5 space-y-3">
+            {/* Stage Selector Tabs */}
+            <div className="flex items-center space-x-2 border-b border-neutral-800 pb-2">
+              <button
+                onClick={() => setActiveStageTab('stage2')}
+                className={`px-3 py-1.5 rounded text-xs font-mono font-bold transition-colors ${
+                  activeStageTab === 'stage2'
+                    ? 'bg-white text-black'
+                    : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+                }`}
+              >
+                Stage 2: Reachability
+              </button>
+              <button
+                onClick={() => setActiveStageTab('stage1')}
+                className={`px-3 py-1.5 rounded text-xs font-mono font-bold transition-colors ${
+                  activeStageTab === 'stage1'
+                    ? 'bg-white text-black'
+                    : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+                }`}
+              >
+                Stage 1: Feasibility
+              </button>
             </div>
-            <FeasibilityPanel
-              result={feasibilityResult}
-              loading={loading}
-            />
+
+            {/* Active Panel View */}
+            {activeStageTab === 'stage2' ? (
+              <ReachabilityPanel
+                result={reachabilityResult}
+                loading={loading}
+              />
+            ) : (
+              <FeasibilityPanel
+                result={feasibilityResult}
+                loading={loading}
+              />
+            )}
           </div>
         </div>
       </main>
