@@ -53,3 +53,11 @@ You combine two core mindsets:
 
 3. **Preset Demos for Zero-Friction Evaluation**:
    - Always maintain built-in sample scenarios (e.g., Bob's Stationery Enterprise baseline, Port Klang disruption, East Malaysia stockout) so the simulator works out of the box without manual file uploads.
+
+4. **Realistic GIS Network Layers Over Naive Point-to-Point Graphing**:
+   - Model the supply chain as a transportation network layer (highways and nautical fairways) where facilities connect via access ramps and harbor channels, rather than abstract chords.
+   - Enforce zero land intersection on all maritime fairways (clearing Tanjung Datu at lat >= 2.40N in deep water).
+
+5. **Pitch-Black Monochrome Aesthetics & Chromatic Spatial Visualizations**:
+   - Adhere to the `#000000` pitch-black and `#ffffff` high-contrast typography theme.
+   - Maintain chromatic color differentiation for transport modalities on Leaflet maps (amber for highways, light blue for sea lanes, never white for map paths).

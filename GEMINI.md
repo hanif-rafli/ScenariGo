@@ -66,3 +66,27 @@ Follow the 4-stage sequential optimization architecture defined in `specs/specs-
 ### 5.4 Type Safety & Contracts
 - **Python Backend**: Strict Pydantic models for all API request/response payloads (`Warehouse`, `Store`, `FleetConfig`, `SimulationResult`). Strict type hints on every function.
 - **TypeScript Frontend**: Strict TypeScript interfaces matching backend Pydantic schemas. Zero `any` types outside external library parsing boundaries.
+
+### 5.5 Realistic GIS Transport Routing & Anti-Naive-Chord Rule
+- **STRICT PROHIBITION**: NEVER generate or render transportation network edges as naive direct Euclidean chords connecting POIs across country terrain, mountains, or landmasses.
+- **Road Highway Layer**:
+  - All land edges must snap to and traverse actual highway/road network geometry (e.g. OpenStreetMap / OSRM highway coordinates for E1/AH2, Federal Route 2, Pan-Borneo Highway).
+  - Use high-resolution polyline coordinates (baked offline via Ramer-Douglas-Peucker simplification or queried dynamically via `fetch_dynamic_road_path`).
+- **Maritime Shipping Fairway Layer**:
+  - Maritime shipping routes must navigate strictly within designated oceanic fairways (Malacca Strait TSS, Singapore Strait TSS south of Singapore, South China Sea deepwater corridor).
+  - **Zero Land Intersection**: Sea lanes must safely circumvent landmasses, peninsulas, and capes in deep international water (e.g. vessels transiting to Kuching must round Tanjung Datu to the north at latitude >= 2.40°N, at least 35 km offshore, before entering the Muara Tebas deepwater channel).
+  - **Port Snapping ("Fairway Jumping")**: Vessels must remain on the trunk fairway until reaching the waypoint closest to the harbor entrance, traversing only the designated port approach channel into the berth.
+
+### 5.6 Design System: Pitch-Black Monochrome & Chromatic Map Styling
+- **Pitch-Black Foundation**: UI background must be pure pitch-black (`#000000`), panels in deep dark neutral (`#0a0a0a` / `#111111`), text in crisp white (`#ffffff` / `#f5f5f5`), and borders in subtle gray (`border-neutral-800`).
+- **No Generic "Vibe-Coded" Pastels**: Avoid soft pastel gradients, rounded pill cards with glowing drop-shadows, or low-contrast gray backgrounds.
+- **Zero API-Key Basemaps**: Use standard public OpenStreetMap raster tiles with CSS dark monochrome inversion filter (`filter: grayscale(100%) invert(100%) contrast(140%) brightness(75%)`) on `.leaflet-tile-pane`. Never introduce tile layers that display watermarks or require API keys.
+- **Chromatic High-Contrast Network Arcs**: Map polyline edges must be chromatic and never white:
+  - Highway Freight Roads: Solid Amber (`#f59e0b`, 2.5px).
+  - Maritime Sea Fairways: Dashed Light Blue (`#38bdf8`, 3.5px, dashArray `8, 8`).
+  - Air Freight Corridors: Solid Purple (`#c084fc`, 2.5px).
+  - Infeasible / Deficit Flow: Solid Red (`#ef4444`, 3.0px).
+
+### 5.7 Normalized Substring Pair Matching
+- Never check Python set membership on compound station names (e.g. `"Penang" in {"Penang Logistics Dep", "Ipoh Supermarket"}`).
+- Always use normalized, case-insensitive substring token matching or spatial proximity lookups for corridor resolvers.
