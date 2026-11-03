@@ -1,0 +1,6 @@
+store_id,name,latitude,longitude,product_id,requested_qty
+0,Shah Alam Retail,3.0738,101.5183,0,25
+0,Shah Alam Retail,3.0738,101.5183,1,10
+1,Ipoh Supermarket,4.5975,101.0901,0,15
+2,Kuching Central Mall,1.5300,110.3400,1,20
+2,Kuching Central Mall,1.5300,110.3400,2,10
