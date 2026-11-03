@@ -4,13 +4,15 @@ import { MapView } from './components/MapView';
 import { ScenarioControls } from './components/ScenarioControls';
 import { FeasibilityPanel } from './components/FeasibilityPanel';
 import { ReachabilityPanel } from './components/ReachabilityPanel';
-import { SimulationRequest, Stage1Result, Stage2Result } from './types/simulation';
+import { FlowPanel } from './components/FlowPanel';
+import { SimulationRequest, Stage1Result, Stage2Result, Stage3Result, AllocationItem } from './types/simulation';
 import {
   checkBackendHealth,
   fetchBobStationeryPreset,
   fetchDeficitPreset,
   evaluateFeasibility,
   evaluateReachability,
+  evaluateNetworkFlow,
 } from './services/api';
 
 const FALLBACK_BASELINE: SimulationRequest = {
@@ -71,7 +73,9 @@ export function App() {
   const [scenario, setScenario] = useState<SimulationRequest>(FALLBACK_BASELINE);
   const [feasibilityResult, setFeasibilityResult] = useState<Stage1Result | null>(null);
   const [reachabilityResult, setReachabilityResult] = useState<Stage2Result | null>(null);
-  const [activeStageTab, setActiveStageTab] = useState<'stage1' | 'stage2'>('stage2');
+  const [flowResult, setFlowResult] = useState<Stage3Result | null>(null);
+  const [selectedAllocation, setSelectedAllocation] = useState<AllocationItem | null>(null);
+  const [activeStageTab, setActiveStageTab] = useState<'stage1' | 'stage2' | 'stage3'>('stage3');
   const [backendOnline, setBackendOnline] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -85,6 +89,10 @@ export function App() {
       // 2. Stage 2 Reachability & Graph Partitioning Check
       const stage2 = await evaluateReachability(targetScenario);
       setReachabilityResult(stage2);
+
+      // 3. Stage 3 Multi-Commodity Network Flow (Circulation with Bounds)
+      const stage3 = await evaluateNetworkFlow(targetScenario);
+      setFlowResult(stage3);
     } catch (err) {
       console.warn('Backend evaluation failed, evaluating locally in frontend:', err);
       // Fallback Stage 1 calculation
@@ -229,6 +237,12 @@ export function App() {
               warehouses={scenario.warehouses}
               stores={scenario.stores}
               edges={reachabilityResult?.edges ?? []}
+              highlightedPath={selectedAllocation?.path_coordinates}
+              highlightLabel={
+                selectedAllocation
+                  ? `[FLOW] ${selectedAllocation.quantity} units P${selectedAllocation.product_id}: ${selectedAllocation.source_name} -> ${selectedAllocation.target_name}`
+                  : undefined
+              }
             />
           </div>
 
@@ -236,6 +250,16 @@ export function App() {
           <div className="lg:col-span-5 space-y-3">
             {/* Stage Selector Tabs */}
             <div className="flex items-center space-x-2 border-b border-neutral-800 pb-2">
+              <button
+                onClick={() => setActiveStageTab('stage3')}
+                className={`px-3 py-1.5 rounded text-xs font-mono font-bold transition-colors ${
+                  activeStageTab === 'stage3'
+                    ? 'bg-white text-black'
+                    : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+                }`}
+              >
+                Stage 3: Network Flow
+              </button>
               <button
                 onClick={() => setActiveStageTab('stage2')}
                 className={`px-3 py-1.5 rounded text-xs font-mono font-bold transition-colors ${
@@ -259,7 +283,13 @@ export function App() {
             </div>
 
             {/* Active Panel View */}
-            {activeStageTab === 'stage2' ? (
+            {activeStageTab === 'stage3' ? (
+              <FlowPanel
+                result={flowResult}
+                loading={loading}
+                onSelectAllocation={setSelectedAllocation}
+              />
+            ) : activeStageTab === 'stage2' ? (
               <ReachabilityPanel
                 result={reachabilityResult}
                 loading={loading}

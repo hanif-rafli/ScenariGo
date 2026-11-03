@@ -20,6 +20,13 @@ from app.models.graph import (
     IntermodalRoute,
     Stage2Result,
 )
+from app.models.flow import (
+    AllocationStatus,
+    RouteType,
+    AllocationItem,
+    FlowEdgeUtilization,
+    Stage3Result,
+)
 
 __all__ = [
     "Warehouse",
@@ -38,4 +45,9 @@ __all__ = [
     "ComponentInfo",
     "IntermodalRoute",
     "Stage2Result",
+    "AllocationStatus",
+    "RouteType",
+    "AllocationItem",
+    "FlowEdgeUtilization",
+    "Stage3Result",
 ]
