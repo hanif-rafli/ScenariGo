@@ -23,6 +23,8 @@ from app.models.graph import (
 from app.models.flow import (
     AllocationStatus,
     RouteType,
+    BottleneckType,
+    BottleneckDetail,
     AllocationItem,
     FlowEdgeUtilization,
     Stage3Result,
@@ -47,6 +49,8 @@ __all__ = [
     "Stage2Result",
     "AllocationStatus",
     "RouteType",
+    "BottleneckType",
+    "BottleneckDetail",
     "AllocationItem",
     "FlowEdgeUtilization",
     "Stage3Result",

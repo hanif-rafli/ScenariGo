@@ -16,9 +16,12 @@ html, body, #root {
   background-color: #000000 !important;
 }
 
-/* Zero API key monochrome dark mode filter for OpenStreetMap tiles */
+/* Zero API key monochrome dark mode filter for OpenStreetMap tiles with GPU acceleration */
 .leaflet-tile-pane {
   filter: grayscale(100%) invert(100%) contrast(140%) brightness(75%);
+  will-change: transform;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 
 .custom-warehouse-icon, .custom-store-icon {

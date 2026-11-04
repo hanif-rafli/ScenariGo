@@ -47,9 +47,18 @@ def test_deficit_circulation_infeasible():
 
     assert result.is_flow_feasible is False
     assert result.total_demand_requested == 110
-    assert result.total_demand_satisfied < 110
+    assert result.total_demand_satisfied == 95
     assert len(result.bottlenecks) > 0
-    assert "[FAIL: CIRCULATION BOTTLENECK]" in result.summary
+    assert len(result.bottleneck_details) == 1
+
+    b = result.bottleneck_details[0]
+    assert b.product_id == "1"
+    assert b.store_name == "Kuching Central Mall"
+    assert b.requested_units == 50
+    assert b.allocated_units == 35
+    assert b.shortfall_units == 15
+    assert len(b.contributing_warehouses) == 2
+    assert "[FAIL: BOTTLENECK TRACE]" in b.root_cause or "Supply Exhaustion" in b.root_cause
 
 
 def test_flow_api_endpoint(client: TestClient, baseline_scenario: SimulationRequest):

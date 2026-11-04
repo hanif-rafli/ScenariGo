@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Warehouse, Store, NetworkEdge } from '../types/simulation';
 import { Building2, Store as StoreIcon, Anchor } from 'lucide-react';
@@ -11,7 +11,25 @@ interface MapViewProps {
   edges?: NetworkEdge[];
   highlightedPath?: [number, number][];
   highlightLabel?: string;
+  panTarget?: [number, number] | null;
+  onSelectStore?: (store: Store) => void;
+  onSelectWarehouse?: (warehouse: Warehouse) => void;
 }
+
+// Controller component to pan / fly the Leaflet camera to selected coordinates
+const MapPanController: React.FC<{ panTarget?: [number, number] | null }> = ({ panTarget }) => {
+  const map = useMap();
+
+  React.useEffect(() => {
+    if (panTarget) {
+      map.flyTo(panTarget, 8, {
+        duration: 1.2,
+      });
+    }
+  }, [panTarget, map]);
+
+  return null;
+};
 
 // Custom monochrome high-contrast DivIcons
 const createWarehouseIcon = (isPort: boolean) => {
@@ -56,22 +74,41 @@ export const MapView: React.FC<MapViewProps> = ({
   edges = [],
   highlightedPath,
   highlightLabel,
+  panTarget,
+  onSelectStore,
+  onSelectWarehouse,
 }) => {
   const defaultCenter: [number, number] = [3.8, 108.5];
   const defaultZoom = 6;
+
+  // Strict bounding box locked around Peninsular Malaysia, Malacca & Singapore Straits,
+  // South China Sea corridor, and Borneo (Sarawak/Sabah).
+  const malaysiaBounds: L.LatLngBoundsLiteral = [
+    [0.2, 98.5],   // Southwest: Malacca Strait entrance & Singapore Strait
+    [8.5, 120.0],  // Northeast: Northern Tip of Sabah & Sulu Sea limits
+  ];
 
   return (
     <div className="relative w-full h-[580px] rounded-lg overflow-hidden border border-neutral-800 shadow-2xl bg-black">
       <MapContainer
         center={defaultCenter}
         zoom={defaultZoom}
+        minZoom={5}
+        maxZoom={10}
+        maxBounds={malaysiaBounds}
+        maxBoundsViscosity={1.0}
         scrollWheelZoom={true}
         className="w-full h-full bg-black"
       >
-        {/* Standard OpenStreetMap tiles with CSS dark monochrome inversion */}
+        {/* Dynamic camera pan / fly controller */}
+        <MapPanController panTarget={panTarget} />
+
+        {/* Standard OpenStreetMap tiles constrained strictly to Malaysia territory with GPU caching */}
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          bounds={malaysiaBounds}
+          keepBuffer={6}
         />
 
         {/* Hover-Highlighted Active Commodity Allocation Flow */}
@@ -165,26 +202,32 @@ export const MapView: React.FC<MapViewProps> = ({
             key={`wh-${w.warehouse_id}`}
             position={[w.latitude, w.longitude]}
             icon={createWarehouseIcon(w.is_port)}
+            eventHandlers={{
+              click: () => onSelectWarehouse?.(w),
+            }}
           >
             <Popup>
-              <div className="p-1 min-w-[200px] font-mono text-white">
-                <div className="flex items-center justify-between border-b border-neutral-700 pb-1.5 mb-2">
+              <div className="p-1 min-w-[210px] font-mono text-white">
+                <div className="flex items-center justify-between border-b border-neutral-700 pb-1.5 mb-1.5">
                   <span className="font-bold text-xs tracking-wide">{w.name}</span>
                   {w.is_port ? (
                     <span className="text-[10px] px-1.5 py-0.5 bg-cyan-950 text-cyan-300 border border-cyan-700 font-bold rounded">
-                      [PORT HUB]
+                      [PORT DEPOT]
                     </span>
                   ) : (
                     <span className="text-[10px] px-1 py-0.5 bg-neutral-800 text-neutral-300 rounded border border-neutral-700">
-                      [WH]
+                      [WAREHOUSE]
                     </span>
                   )}
                 </div>
-                <div className="text-[11px] text-neutral-400 mb-2">
+                <div className="text-[10px] text-neutral-400 mb-1">
+                  {w.is_port ? 'Port-adjacent bonded depot (sea transshipment)' : 'Inland distribution warehouse'}
+                </div>
+                <div className="text-[11px] text-neutral-500 mb-2 font-mono">
                   ID: W{w.warehouse_id} | {w.latitude.toFixed(4)}, {w.longitude.toFixed(4)}
                 </div>
                 <div className="text-[11px] uppercase tracking-wider text-neutral-400 mb-1 border-t border-neutral-800 pt-1">
-                  Available Stock:
+                  {w.is_port ? 'Depot Inventory On-Site:' : 'Available Stock:'}
                 </div>
                 <div className="space-y-1">
                   {Object.entries(w.inventory).length > 0 ? (
@@ -209,6 +252,9 @@ export const MapView: React.FC<MapViewProps> = ({
             key={`store-${s.store_id}`}
             position={[s.latitude, s.longitude]}
             icon={createStoreIcon()}
+            eventHandlers={{
+              click: () => onSelectStore?.(s),
+            }}
           >
             <Popup>
               <div className="p-1 min-w-[200px] font-mono text-white">
@@ -262,7 +308,7 @@ export const MapView: React.FC<MapViewProps> = ({
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-3.5 h-3.5 rounded-full bg-white ring-2 ring-cyan-400" />
-          <span className="text-white">Port Gateway</span>
+          <span className="text-white">Port Logistics Depot</span>
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-3.5 h-3.5 rounded-sm bg-neutral-900 border border-white" />

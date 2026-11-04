@@ -123,6 +123,20 @@ export interface Stage2Result {
 // Stage 3: Multi-Commodity Network Flow Models
 export type AllocationStatus = 'ALLOCATED' | 'SHORTFALL' | 'BOTTLENECK';
 export type RouteType = 'DIRECT_HIGHWAY' | 'INTERMODAL_TRANSSHIPMENT';
+export type BottleneckType = 'SUPPLY_EXHAUSTION' | 'CORRIDOR_SATURATION' | 'UNREACHABLE_ISLAND';
+
+export interface BottleneckDetail {
+  bottleneck_id: string;
+  product_id: string;
+  store_id: number;
+  store_name: string;
+  requested_units: number;
+  allocated_units: number;
+  shortfall_units: number;
+  bottleneck_type: BottleneckType;
+  root_cause: string;
+  contributing_warehouses: string[];
+}
 
 export interface AllocationItem {
   allocation_id: string;
@@ -159,6 +173,7 @@ export interface Stage3Result {
   allocations: AllocationItem[];
   corridor_utilizations: FlowEdgeUtilization[];
   bottlenecks: string[];
+  bottleneck_details?: BottleneckDetail[];
   tokens: string[];
   summary: string;
 }

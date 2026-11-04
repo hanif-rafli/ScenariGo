@@ -1,4 +1,4 @@
-from enum import Enum, IntEnum
+from enum import Enum
 from pydantic import BaseModel, Field
 from app.models.graph import Modality
 
@@ -12,6 +12,26 @@ class AllocationStatus(str, Enum):
 class RouteType(str, Enum):
     DIRECT_HIGHWAY = "DIRECT_HIGHWAY"
     INTERMODAL_TRANSSHIPMENT = "INTERMODAL_TRANSSHIPMENT"
+
+
+class BottleneckType(str, Enum):
+    SUPPLY_EXHAUSTION = "SUPPLY_EXHAUSTION"
+    CORRIDOR_SATURATION = "CORRIDOR_SATURATION"
+    UNREACHABLE_ISLAND = "UNREACHABLE_ISLAND"
+
+
+class BottleneckDetail(BaseModel):
+    """Granular causal traceability for an unfulfilled demand bottleneck."""
+    bottleneck_id: str
+    product_id: str
+    store_id: int
+    store_name: str
+    requested_units: int
+    allocated_units: int
+    shortfall_units: int
+    bottleneck_type: BottleneckType
+    root_cause: str
+    contributing_warehouses: list[str] = Field(default_factory=list)
 
 
 class AllocationItem(BaseModel):
@@ -52,5 +72,6 @@ class Stage3Result(BaseModel):
     allocations: list[AllocationItem] = Field(default_factory=list)
     corridor_utilizations: list[FlowEdgeUtilization] = Field(default_factory=list)
     bottlenecks: list[str] = Field(default_factory=list)
+    bottleneck_details: list[BottleneckDetail] = Field(default_factory=list)
     tokens: list[str] = Field(default_factory=list)
     summary: str

@@ -75,9 +75,23 @@ export function App() {
   const [reachabilityResult, setReachabilityResult] = useState<Stage2Result | null>(null);
   const [flowResult, setFlowResult] = useState<Stage3Result | null>(null);
   const [selectedAllocation, setSelectedAllocation] = useState<AllocationItem | null>(null);
+  const [panTarget, setPanTarget] = useState<[number, number] | null>(null);
   const [activeStageTab, setActiveStageTab] = useState<'stage1' | 'stage2' | 'stage3'>('stage3');
   const [backendOnline, setBackendOnline] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
+
+  const handleSelectStore = (storeId: number | string) => {
+    const rawIdStr = String(storeId);
+    const numericMatch = rawIdStr.match(/\d+/);
+    const numericId = numericMatch ? parseInt(numericMatch[0], 10) : NaN;
+
+    const store = scenario.stores.find(
+      (s) => s.store_id === numericId || s.name.toLowerCase().includes(rawIdStr.toLowerCase())
+    );
+    if (store) {
+      setPanTarget([store.latitude, store.longitude]);
+    }
+  };
 
   const runEvaluation = useCallback(async (targetScenario: SimulationRequest) => {
     setLoading(true);
@@ -243,6 +257,9 @@ export function App() {
                   ? `[FLOW] ${selectedAllocation.quantity} units P${selectedAllocation.product_id}: ${selectedAllocation.source_name} -> ${selectedAllocation.target_name}`
                   : undefined
               }
+              panTarget={panTarget}
+              onSelectStore={(s) => setPanTarget([s.latitude, s.longitude])}
+              onSelectWarehouse={(w) => setPanTarget([w.latitude, w.longitude])}
             />
           </div>
 
@@ -288,6 +305,7 @@ export function App() {
                 result={flowResult}
                 loading={loading}
                 onSelectAllocation={setSelectedAllocation}
+                onSelectStore={handleSelectStore}
               />
             ) : activeStageTab === 'stage2' ? (
               <ReachabilityPanel

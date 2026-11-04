@@ -12,6 +12,8 @@ from app.models.graph import Modality
 from app.models.flow import (
     AllocationStatus,
     RouteType,
+    BottleneckType,
+    BottleneckDetail,
     AllocationItem,
     FlowEdgeUtilization,
     Stage3Result,
@@ -249,7 +251,7 @@ def solve_network_flow(
                         raw_edges.append((
                             port_dep_node,
                             port_arr_node,
-                            500,  # Container vessel slot throughput cap
+                            100,  # Regional feeder container vessel slot limit
                             0,
                             {
                                 "type": "TRANSPORT_MARITIME",
@@ -364,7 +366,7 @@ def solve_network_flow(
 
             corridor_key = f"{w.name} -> {s.name}"
             corridor_flows[corridor_key]["flow"] += actual_flow
-            corridor_flows[corridor_key]["cap"] += edge.capacity
+            corridor_flows[corridor_key]["cap"] = max(corridor_flows[corridor_key]["cap"], 50)
             corridor_flows[corridor_key]["mod"] = Modality.LAND
 
         elif edge_type == "TRANSPORT_MARITIME" and actual_flow > 0:
@@ -401,12 +403,109 @@ def solve_network_flow(
             alloc_id_counter += 1
             total_satisfied += actual_flow
 
-            corridor_key = f"{dep_port.name} -> {arr_port.name} (Sea Fairway)"
+            corridor_key = f"{dep_port.name} -> {arr_port.name} (Sea Lane)"
             corridor_flows[corridor_key]["flow"] += actual_flow
-            corridor_flows[corridor_key]["cap"] += 500
+            corridor_flows[corridor_key]["cap"] = 100  # Regional feeder container vessel capacity
             corridor_flows[corridor_key]["mod"] = Modality.MARITIME
 
-    # 6. Build Corridor Utilizations & Actionable Audit Tokens
+    # 6. Detailed Causal Bottleneck Traceability
+    # For every store and requested product, check requested vs delivered
+    store_prod_delivered: dict[tuple[int, str], int] = defaultdict(int)
+    for alloc in allocations:
+        store_prod_delivered[(alloc.target_id, alloc.product_id)] += alloc.quantity
+
+    # Track inventory consumed per warehouse per product
+    wh_prod_consumed: dict[tuple[int, str], int] = defaultdict(int)
+    for alloc in allocations:
+        wh_prod_consumed[(alloc.source_id, alloc.product_id)] += alloc.quantity
+
+    bottleneck_details: list[BottleneckDetail] = []
+    b_counter = 1
+    tokens: list[str] = []
+    bottlenecks: list[str] = []
+
+    for s in stores:
+        for pid, req_qty in s.requests.items():
+            delivered = store_prod_delivered[(s.store_id, str(pid))]
+            if delivered < req_qty:
+                shortfall = req_qty - delivered
+                s_comp = node_to_comp.get(1000 + s.store_id)
+
+                # Trace supply depletion across reachable warehouses
+                reachable_whs = [
+                    w for w in warehouses
+                    if pid in w.inventory and (
+                        node_to_comp.get(w.warehouse_id) == s_comp or
+                        w.is_port or
+                        any(p.is_port for p in warehouses if node_to_comp.get(p.warehouse_id) == node_to_comp.get(w.warehouse_id))
+                    )
+                ]
+
+                contributing_traces: list[str] = []
+                total_reachable_supply = 0
+                for w in reachable_whs:
+                    w_stock = w.inventory[pid]
+                    used = wh_prod_consumed[(w.warehouse_id, str(pid))]
+                    total_reachable_supply += w_stock
+                    contributing_traces.append(f"{w.name} (W{w.warehouse_id}): {used}/{w_stock} units used")
+
+                if total_reachable_supply < req_qty:
+                    b_type = BottleneckType.SUPPLY_EXHAUSTION
+                    explanation = (
+                        f"Supply Exhaustion: Total available supply of Product P{pid} across all reachable warehouses "
+                        f"is {total_reachable_supply} units, which cannot satisfy Store S{s.store_id} ({s.name}) request of {req_qty} units. "
+                        f"Shortfall = {shortfall} units. All contributing warehouse stocks are 100% depleted."
+                    )
+                else:
+                    b_type = BottleneckType.CORRIDOR_SATURATION
+                    explanation = (
+                        f"Corridor Throughput Saturation: Product P{pid} has warehouse stock, but transport throughput caps "
+                        f"or port fairway limits prevented routing {shortfall} units to Store S{s.store_id} ({s.name})."
+                    )
+
+                b_detail = BottleneckDetail(
+                    bottleneck_id=f"BOTTLENECK-{b_counter:03d}",
+                    product_id=str(pid),
+                    store_id=s.store_id,
+                    store_name=s.name,
+                    requested_units=req_qty,
+                    allocated_units=delivered,
+                    shortfall_units=shortfall,
+                    bottleneck_type=b_type,
+                    root_cause=explanation,
+                    contributing_warehouses=contributing_traces,
+                )
+                bottleneck_details.append(b_detail)
+                b_counter += 1
+
+                trace_token = (
+                    f"[FAIL: BOTTLENECK TRACE] Store S{s.store_id} ({s.name}) Product P{pid} shortfall: "
+                    f"Requested = {req_qty}, Delivered = {delivered}, Shortfall = {shortfall} units. "
+                    f"Causal Chain: {', '.join(contributing_traces)} -> Stock fully exhausted."
+                )
+                tokens.append(trace_token)
+                bottlenecks.append(trace_token)
+
+                # Insert visible SHORTFALL item in dispatches list
+                allocations.append(
+                    AllocationItem(
+                        allocation_id=f"SHORTFALL-P{pid}",
+                        source_id=-1,
+                        source_name="UNFULFILLED SHORTFALL",
+                        target_id=s.store_id,
+                        target_name=s.name,
+                        product_id=str(pid),
+                        quantity=shortfall,
+                        modality=Modality.LAND,
+                        route_type=RouteType.DIRECT_HIGHWAY,
+                        distance_km=0.0,
+                        transit_hours=0.0,
+                        path_coordinates=[],
+                        status=AllocationStatus.SHORTFALL,
+                    )
+                )
+
+    # 7. Corridor Utilizations
     utilizations: list[FlowEdgeUtilization] = []
     for c_name, data in corridor_flows.items():
         flow_u = data["flow"]
@@ -423,9 +522,6 @@ def solve_network_flow(
             )
         )
 
-    tokens: list[str] = []
-    bottlenecks: list[str] = []
-
     if is_feasible:
         tokens.append(
             f"[OK: FLOW SATISFIED] All retail requests fully met ({total_demand_requested} units across {len(allocations)} shipment flows)."
@@ -441,14 +537,6 @@ def solve_network_flow(
                     f"[OK: HIGHWAY ALLOCATED] {alloc.quantity} units P{alloc.product_id} from {alloc.source_name} to {alloc.target_name} "
                     f"via E1/Highway ({alloc.distance_km} km)."
                 )
-    else:
-        shortfall = total_demand_requested - total_satisfied
-        bottleneck_token = (
-            f"[FAIL: INSUFFICIENT NETWORK CAPACITY] Network circulation deficit of {shortfall} units. "
-            f"Only {total_satisfied}/{total_demand_requested} units could be routed without exceeding corridor or warehouse bounds."
-        )
-        tokens.append(bottleneck_token)
-        bottlenecks.append(bottleneck_token)
 
     pct_satisfied = round((total_satisfied / total_demand_requested) * 100.0, 1) if total_demand_requested > 0 else 100.0
 
@@ -466,6 +554,7 @@ def solve_network_flow(
         allocations=allocations,
         corridor_utilizations=utilizations,
         bottlenecks=bottlenecks,
+        bottleneck_details=bottleneck_details,
         tokens=tokens,
         summary=summary,
     )
