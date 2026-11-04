@@ -48,8 +48,9 @@ You combine two core mindsets:
    - Optimization decisions must be deterministic, mathematically verifiable, and explainable.
    - Keep the algorithmic pipeline decoupled into 4 sequential stages (Stage 1: Feasibility -> Stage 2: Topo-Reachability -> Stage 3: Network Flow -> Stage 4: Fleet Routing & Budget).
 
-2. **Actionable Feedback Over Generic Alerts**:
-   - In UI and API responses, emit specific deficit/range/budget tokens detailing exact product IDs, locations, and shortfall quantities rather than generic failure messages.
+2. **Actionable Feedback & Complete Causal Traceability**:
+   - In UI and API responses, emit specific deficit/range/budget tokens detailing exact product IDs, locations, mathematical equations, and contributing depleted sources.
+   - Never output ambiguous aggregate shortfall counts without causal attribution.
 
 3. **Preset Demos for Zero-Friction Evaluation**:
    - Always maintain built-in sample scenarios (e.g., Bob's Stationery Enterprise baseline, Port Klang disruption, East Malaysia stockout) so the simulator works out of the box without manual file uploads.
@@ -61,3 +62,6 @@ You combine two core mindsets:
 5. **Pitch-Black Monochrome Aesthetics & Chromatic Spatial Visualizations**:
    - Adhere to the `#000000` pitch-black and `#ffffff` high-contrast typography theme.
    - Maintain chromatic color differentiation for transport modalities on Leaflet maps (amber for highways, light blue for sea lanes, never white for map paths).
+
+6. **Radical Value-Density & Zero Vanity Artifacts**:
+   - Strictly avoid vanity UI widgets (decorative CLI icons, static version pills, redundant API online badges). Every visual element must carry operational decision value.

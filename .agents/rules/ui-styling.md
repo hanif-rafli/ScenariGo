@@ -16,3 +16,8 @@
   - Air Corridor: Solid Purple `#c084fc` (weight 2.5).
   - Deficit / Infeasible: Solid Red `#ef4444` (weight 3.0).
   - NEVER use white for map polyline edges.
+
+## 3. Value Density & Fluff Prohibition
+- **Zero Cosmetic Fluff**: Omit decorative logo containers, static version numbers, and generic online badges.
+- **High Signal-to-Noise**: Header and navigation must be lean and minimal: Project Name, Subtitle, Active Scenario Context, and direct functional links (e.g. Docs) only.
+- **Actionable Telemetry First**: Prioritize data tables, GIS paths, and quantitative audit tokens over visual decoration.

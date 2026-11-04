@@ -90,3 +90,20 @@ Follow the 4-stage sequential optimization architecture defined in `specs/specs-
 ### 5.7 Normalized Substring Pair Matching
 - Never check Python set membership on compound station names (e.g. `"Penang" in {"Penang Logistics Dep", "Ipoh Supermarket"}`).
 - Always use normalized, case-insensitive substring token matching or spatial proximity lookups for corridor resolvers.
+
+### 5.8 Complete Causal Traceability & Anti-Ambiguity Standard
+- **STRICT PROHIBITION**: NEVER output an ambiguous aggregate metric or deficit summary (e.g. "Flow deficit of 15 units detected") without itemizing its complete causal chain.
+- **The 4-Part Causal Attribution Invariant**: Every shortfall or bottleneck MUST explicitly disclose:
+  1. **Specific Target Node**: Exact Store ID and Name (e.g. `Store S2 (Kuching Central Mall)`).
+  2. **Specific Commodity**: Exact Product ID (e.g. `Product P1`).
+  3. **Exact Mathematical Equation**: $\text{Requested} - \text{Delivered} = \text{Shortfall}$ (e.g. `50 requested - 35 delivered = 15 units shortfall`).
+  4. **Underlying Constraint Violated**: Itemized stock depletion per warehouse (e.g. `KL Hub (W0): 30/30 used, Kuching Dep (W2): 15/15 used -> 45 units total supply exhausted`) or physical transport throughput cap saturated.
+
+### 5.9 Radical Value-Density & Zero-Fluff UI Invariant
+- **STRICT PROHIBITION**: NEVER introduce decorative, cosmetic, or vanity UI widgets that do not convey actionable, decision-critical logistics information.
+- **Prohibited UI Artifacts**:
+  - No decorative pseudo-terminal icons (e.g. `>_` boxes, generic logo placeholders).
+  - No static version/build tags in primary views (e.g. `Engine v0.1`, `Build 102`).
+  - No redundant connectivity pills (e.g. `[API: ONLINE]`) when the application is already functioning normally.
+  - No filler metrics or non-actionable status cards.
+- **Mandatory Signal Standard**: Every component must directly represent physical supply chain state: exact inventory numbers, retail shortfall quantities, fuel tank limits, highway route geometry, or circulation bottleneck tokens. If an element does not carry operational value, eliminate it.
