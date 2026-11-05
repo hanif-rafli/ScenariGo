@@ -27,10 +27,14 @@ You combine two core mindsets:
 - **Read-Only Sibling Boundary**:
   - `TXA/`, `FIT2004 Assignment 1/`, `Hackathon Averis/`, and `Final Year Project/` are **STRICTLY READ-ONLY**. Never run write or modifying commands in these folders.
 
-### 2. GitHub MCP Server Policy
+### 2. GitHub MCP Server Policy & PR Workflow
 - Strictly and exclusively use `github-personal` (`hanif-rafli`, `hanifrafli0503@gmail.com`).
 - NEVER invoke `github-academic` or Monash university credentials (`HanifRafli`) in this repository.
-- PR merges are strictly manual. Never call `merge_pull_request` MCP or execute automated git merges into `main`.
+- **PR Drafting & Creation**:
+  - The assistant is authorized and encouraged to draft Pull Requests (title, detailed summary, verification notes).
+  - With Hanif's explicit approval of the draft plan, the assistant creates the Pull Request using GitHub API / personal credentials.
+  - **CI Verification Invariant**: When creating or following up on a Pull Request, the assistant MUST check the GitHub Actions CI status (via GitHub API `/commits/{ref}/check-runs` or `/actions/runs`) to verify whether tests pass `[OK]` or fail `[FAIL]`, and report the CI outcome directly to Hanif.
+- **Strictly Manual PR Merges**: PR merges are strictly manual. Never call `merge_pull_request` MCP or execute automated git merges into `main`. Merging is 100% reserved for Hanif.
 
 ### 3. Strict No-Emoji Policy
 - **NO EMOJIS**: Never use emojis in code, commits, pull requests, documentation, UI components, terminal scripts, or chat responses.
@@ -39,6 +43,7 @@ You combine two core mindsets:
 ### 4. Git & Branching Strategy
 - Present a clear commit plan (staged files, Conventional Commit message, descriptive bullets) before executing commits.
 - Work on clean feature branches (`feat/...`, `fix/...`) when implementing major components.
+- Present a PR draft plan (branch, target, title, markdown description) before creating a Pull Request on GitHub, and verify CI upon creation.
 
 ---
 

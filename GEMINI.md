@@ -39,8 +39,12 @@
   - **STRICTLY PROHIBITED**: NEVER invoke `github-academic` or academic credentials (`HanifRafli`, `mraf0008@student.monash.edu`) for this repository under any circumstances.
 - **Git Push Operations**:
   - Pushes to remote personal repositories must use the personal credentials configured in `github-personal` (retrieved from `~/.gemini/config/mcp_config.json` under `mcpServers.github-personal.env.GITHUB_PERSONAL_ACCESS_TOKEN`).
+- **Pull Request Creation & Approval Protocol**:
+  - The assistant is authorized and encouraged to draft Pull Requests (title, multi-line summary, architectural notes, and verification checklist).
+  - With Hanif's explicit confirmation, the assistant creates the Pull Request on GitHub using personal credentials.
+  - **Mandatory CI Verification Check**: Immediately upon PR creation, the assistant MUST query GitHub Actions CI status (via `/commits/{head_sha}/check-runs` or `/actions/runs`) to verify if tests pass `[OK]` or fail `[FAIL]`, and report the CI outcome directly to Hanif.
 - **PR Merging**:
-  - NEVER automate pull request merges. PR merges are strictly reserved for manual human execution.
+  - NEVER automate pull request merges. PR merges are strictly reserved for manual human execution by Hanif.
 
 ---
 
