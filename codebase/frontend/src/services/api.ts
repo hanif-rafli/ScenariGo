@@ -1,4 +1,11 @@
-import { SimulationRequest, Stage1Result, Stage2Result, Stage3Result } from '../types/simulation';
+import {
+  SimulationRequest,
+  Stage1Result,
+  Stage2Result,
+  Stage3Result,
+  Stage4Result,
+  TruckInstance,
+} from '../types/simulation';
 
 const API_BASE_URL = 'http://127.0.0.1:8000';
 
@@ -67,6 +74,28 @@ export async function evaluateNetworkFlow(request: SimulationRequest): Promise<S
   });
   if (!res.ok) {
     throw new Error(`Network flow evaluation failed: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchTruckFleet(): Promise<TruckInstance[]> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/fleet/trucks`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch truck fleet: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function evaluateFleetRouting(request: SimulationRequest): Promise<Stage4Result> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/fleet/route`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
+  if (!res.ok) {
+    throw new Error(`Fleet routing evaluation failed: ${res.statusText}`);
   }
   return res.json();
 }

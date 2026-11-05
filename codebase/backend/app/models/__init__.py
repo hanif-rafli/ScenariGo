@@ -29,6 +29,14 @@ from app.models.flow import (
     FlowEdgeUtilization,
     Stage3Result,
 )
+from app.models.fleet import (
+    TripLegType,
+    RefuelingStop,
+    TripLeg,
+    DispatchItinerary,
+    TruckInstance,
+    Stage4Result,
+)
 
 __all__ = [
     "Warehouse",
@@ -54,4 +62,10 @@ __all__ = [
     "AllocationItem",
     "FlowEdgeUtilization",
     "Stage3Result",
+    "TripLegType",
+    "RefuelingStop",
+    "TripLeg",
+    "DispatchItinerary",
+    "TruckInstance",
+    "Stage4Result",
 ]

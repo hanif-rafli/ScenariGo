@@ -177,3 +177,80 @@ export interface Stage3Result {
   tokens: string[];
   summary: string;
 }
+
+// Stage 4: Fleet Routing, Fuel Range & Budget Pacing
+export type TripLegType = 'DEADHEAD_PICKUP' | 'HAUL_DELIVERY' | 'REFUEL_DETOUR';
+
+export interface RefuelingStop {
+  station_id: string;
+  station_name: string;
+  highway_name: string;
+  coords: [number, number];
+  liters_refueled: number;
+  cost_myr: number;
+}
+
+export interface TripLeg {
+  leg_type: TripLegType;
+  origin_name: string;
+  origin_coords: [number, number];
+  destination_name: string;
+  destination_coords: [number, number];
+  distance_km: number;
+  transit_hours: number;
+  fuel_burned_liters: number;
+  fuel_cost_myr: number;
+  path_coordinates: [number, number][];
+}
+
+export interface DispatchItinerary {
+  itinerary_id: string;
+  truck_id: string;
+  truck_name: string;
+  truck_image: string;
+  allocation_id: string;
+  product_id: string;
+  quantity_units: number;
+  source_warehouse_id: number;
+  source_warehouse_name: string;
+  target_store_id: number;
+  target_store_name: string;
+  total_distance_km: number;
+  total_transit_hours: number;
+  total_fuel_liters: number;
+  total_fuel_cost_myr: number;
+  legs: TripLeg[];
+  refueling_stops: RefuelingStop[];
+  is_refueled: boolean;
+  is_range_exceeded: boolean;
+  status: string;
+}
+
+export interface TruckInstance {
+  truck_id: string;
+  name: string;
+  model_id: string;
+  image_url: string;
+  payload_capacity_kg: number;
+  fuel_economy_kmpl: number;
+  fuel_tank_capacity_l: number;
+  current_location_name: string;
+  current_coords: [number, number];
+  assigned_allocation_id?: string | null;
+  is_assigned: boolean;
+}
+
+export interface Stage4Result {
+  is_budget_feasible: boolean;
+  total_fleet_fuel_cost_myr: number;
+  total_maritime_cost_myr: number;
+  total_transport_cost_myr: number;
+  budget_cap_myr: number;
+  budget_variance_myr: number;
+  dispatched_trucks_count: number;
+  unassigned_tasks_count: number;
+  itineraries: DispatchItinerary[];
+  available_trucks: TruckInstance[];
+  tokens: string[];
+  summary: string;
+}
