@@ -5,7 +5,17 @@ import { ScenarioControls } from './components/ScenarioControls';
 import { FeasibilityPanel } from './components/FeasibilityPanel';
 import { ReachabilityPanel } from './components/ReachabilityPanel';
 import { FlowPanel } from './components/FlowPanel';
-import { SimulationRequest, Stage1Result, Stage2Result, Stage3Result, AllocationItem } from './types/simulation';
+import { FleetPanel } from './components/FleetPanel';
+import { ManageFleet } from './pages/ManageFleet';
+import {
+  SimulationRequest,
+  Stage1Result,
+  Stage2Result,
+  Stage3Result,
+  Stage4Result,
+  AllocationItem,
+  TruckInstance,
+} from './types/simulation';
 import {
   checkBackendHealth,
   fetchBobStationeryPreset,
@@ -13,6 +23,8 @@ import {
   evaluateFeasibility,
   evaluateReachability,
   evaluateNetworkFlow,
+  evaluateFleetRouting,
+  fetchTruckFleet,
 } from './services/api';
 
 const FALLBACK_BASELINE: SimulationRequest = {
@@ -74,9 +86,12 @@ export function App() {
   const [feasibilityResult, setFeasibilityResult] = useState<Stage1Result | null>(null);
   const [reachabilityResult, setReachabilityResult] = useState<Stage2Result | null>(null);
   const [flowResult, setFlowResult] = useState<Stage3Result | null>(null);
+  const [stage4Result, setStage4Result] = useState<Stage4Result | null>(null);
+  const [fleet, setFleet] = useState<TruckInstance[]>([]);
+  const [activeView, setActiveView] = useState<'simulator' | 'fleet'>('simulator');
   const [selectedAllocation, setSelectedAllocation] = useState<AllocationItem | null>(null);
   const [panTarget, setPanTarget] = useState<[number, number] | null>(null);
-  const [activeStageTab, setActiveStageTab] = useState<'stage1' | 'stage2' | 'stage3'>('stage3');
+  const [activeStageTab, setActiveStageTab] = useState<'stage1' | 'stage2' | 'stage3' | 'stage4'>('stage4');
   const [backendOnline, setBackendOnline] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -107,6 +122,13 @@ export function App() {
       // 3. Stage 3 Multi-Commodity Network Flow (Circulation with Bounds)
       const stage3 = await evaluateNetworkFlow(targetScenario);
       setFlowResult(stage3);
+
+      // 4. Stage 4 Fleet Routing, Range Checking & Budget Pacing
+      const stage4 = await evaluateFleetRouting(targetScenario);
+      setStage4Result(stage4);
+      if (stage4.available_trucks && stage4.available_trucks.length > 0) {
+        setFleet(stage4.available_trucks);
+      }
     } catch (err) {
       console.warn('Backend evaluation failed, evaluating locally in frontend:', err);
       // Fallback Stage 1 calculation
@@ -176,8 +198,12 @@ export function App() {
 
       if (isOnline) {
         try {
-          const baseline = await fetchBobStationeryPreset();
+          const [baseline, initialFleet] = await Promise.all([
+            fetchBobStationeryPreset(),
+            fetchTruckFleet(),
+          ]);
           setScenario(baseline);
+          setFleet(initialFleet);
           await runEvaluation(baseline);
           return;
         } catch (e) {
@@ -227,99 +253,149 @@ export function App() {
       <Header
         backendOnline={backendOnline}
         activeScenarioName={scenario.scenario_name}
+        activeView={activeView}
+        onChangeView={setActiveView}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
-        <ScenarioControls
-          currentScenario={scenario}
-          onSelectPreset={handleSelectPreset}
-          onRunFeasibility={() => runEvaluation(scenario)}
-          onCustomScenarioLoaded={handleCustomScenarioLoaded}
-          loading={loading}
-        />
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Map Column (7 cols) */}
-          <div className="lg:col-span-7 space-y-2">
-            <div className="flex items-center justify-between text-xs uppercase tracking-wider text-neutral-400">
-              <span>Multi-Modal Network Topology</span>
-              <span className="text-cyan-400 font-bold">
-                {reachabilityResult ? `${reachabilityResult.edges.length} Edges Active` : 'Topological Map'}
-              </span>
-            </div>
-            <MapView
-              warehouses={scenario.warehouses}
-              stores={scenario.stores}
-              edges={reachabilityResult?.edges ?? []}
-              highlightedPath={selectedAllocation?.path_coordinates}
-              highlightLabel={
-                selectedAllocation
-                  ? `[FLOW] ${selectedAllocation.quantity} units P${selectedAllocation.product_id}: ${selectedAllocation.source_name} -> ${selectedAllocation.target_name}`
-                  : undefined
-              }
-              panTarget={panTarget}
-              onSelectStore={(s) => setPanTarget([s.latitude, s.longitude])}
-              onSelectWarehouse={(w) => setPanTarget([w.latitude, w.longitude])}
+        {activeView === 'fleet' ? (
+          <ManageFleet
+            fleet={fleet}
+            itineraries={stage4Result?.itineraries ?? []}
+            onAddTruck={(newTruck) => setFleet((prev) => [...prev, newTruck])}
+          />
+        ) : (
+          <>
+            <ScenarioControls
+              currentScenario={scenario}
+              onSelectPreset={handleSelectPreset}
+              onRunFeasibility={() => runEvaluation(scenario)}
+              onCustomScenarioLoaded={handleCustomScenarioLoaded}
+              loading={loading}
             />
-          </div>
 
-          {/* Audit / Engine Panels Column (5 cols) */}
-          <div className="lg:col-span-5 space-y-3">
-            {/* Stage Selector Tabs */}
-            <div className="flex items-center space-x-2 border-b border-neutral-800 pb-2">
-              <button
-                onClick={() => setActiveStageTab('stage3')}
-                className={`px-3 py-1.5 rounded text-xs font-mono font-bold transition-colors ${
-                  activeStageTab === 'stage3'
-                    ? 'bg-white text-black'
-                    : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
-                }`}
-              >
-                Stage 3: Network Flow
-              </button>
-              <button
-                onClick={() => setActiveStageTab('stage2')}
-                className={`px-3 py-1.5 rounded text-xs font-mono font-bold transition-colors ${
-                  activeStageTab === 'stage2'
-                    ? 'bg-white text-black'
-                    : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
-                }`}
-              >
-                Stage 2: Reachability
-              </button>
-              <button
-                onClick={() => setActiveStageTab('stage1')}
-                className={`px-3 py-1.5 rounded text-xs font-mono font-bold transition-colors ${
-                  activeStageTab === 'stage1'
-                    ? 'bg-white text-black'
-                    : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
-                }`}
-              >
-                Stage 1: Feasibility
-              </button>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Map Column (7 cols) */}
+              <div className="lg:col-span-7 space-y-2">
+                <div className="flex items-center justify-between text-xs uppercase tracking-wider text-neutral-400">
+                  <span>Multi-Modal Network Topology</span>
+                  <span className="text-cyan-400 font-bold">
+                    {reachabilityResult ? `${reachabilityResult.edges.length} Edges Active` : 'Topological Map'}
+                  </span>
+                </div>
+                <MapView
+                  warehouses={scenario.warehouses}
+                  stores={scenario.stores}
+                  edges={reachabilityResult?.edges ?? []}
+                  highlightedPath={selectedAllocation?.path_coordinates}
+                  highlightLabel={
+                    selectedAllocation
+                      ? `[FLOW] ${selectedAllocation.quantity} units P${selectedAllocation.product_id}: ${selectedAllocation.source_name} -> ${selectedAllocation.target_name}`
+                      : undefined
+                  }
+                  panTarget={panTarget}
+                  onSelectStore={(s) => setPanTarget([s.latitude, s.longitude])}
+                  onSelectWarehouse={(w) => setPanTarget([w.latitude, w.longitude])}
+                />
+              </div>
+
+              {/* Audit / Engine Panels Column (5 cols) */}
+              <div className="lg:col-span-5 space-y-3">
+                {/* Stage Selector Tabs */}
+                <div className="flex flex-wrap items-center gap-1.5 border-b border-neutral-800 pb-2">
+                  <button
+                    onClick={() => setActiveStageTab('stage4')}
+                    className={`px-2.5 py-1.5 rounded text-xs font-mono font-bold transition-colors cursor-pointer ${
+                      activeStageTab === 'stage4'
+                        ? 'bg-white text-black'
+                        : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+                    }`}
+                  >
+                    Stage 4: Fleet & Budget
+                  </button>
+                  <button
+                    onClick={() => setActiveStageTab('stage3')}
+                    className={`px-2.5 py-1.5 rounded text-xs font-mono font-bold transition-colors cursor-pointer ${
+                      activeStageTab === 'stage3'
+                        ? 'bg-white text-black'
+                        : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+                    }`}
+                  >
+                    Stage 3: Flow
+                  </button>
+                  <button
+                    onClick={() => setActiveStageTab('stage2')}
+                    className={`px-2.5 py-1.5 rounded text-xs font-mono font-bold transition-colors cursor-pointer ${
+                      activeStageTab === 'stage2'
+                        ? 'bg-white text-black'
+                        : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+                    }`}
+                  >
+                    Stage 2: Reach
+                  </button>
+                  <button
+                    onClick={() => setActiveStageTab('stage1')}
+                    className={`px-2.5 py-1.5 rounded text-xs font-mono font-bold transition-colors cursor-pointer ${
+                      activeStageTab === 'stage1'
+                        ? 'bg-white text-black'
+                        : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+                    }`}
+                  >
+                    Stage 1: Feasible
+                  </button>
+                </div>
+
+                {/* Active Panel View */}
+                {activeStageTab === 'stage4' ? (
+                  <FleetPanel
+                    result={stage4Result}
+                    loading={loading}
+                    onSelectItinerary={(itin) => {
+                      if (itin && itin.legs.length > 0) {
+                        const coords: [number, number][] = itin.legs.flatMap((l) => l.path_coordinates);
+                        setSelectedAllocation({
+                          allocation_id: itin.allocation_id,
+                          source_id: itin.source_warehouse_id,
+                          source_name: itin.source_warehouse_name,
+                          target_id: itin.target_store_id,
+                          target_name: itin.target_store_name,
+                          product_id: itin.product_id,
+                          quantity: itin.quantity_units,
+                          modality: 0,
+                          route_type: 'DIRECT_HIGHWAY' as any,
+                          distance_km: itin.total_distance_km,
+                          transit_hours: itin.total_transit_hours,
+                          path_coordinates: coords.length > 0 ? coords : undefined,
+                          status: 'ALLOCATED' as any,
+                        });
+                      } else {
+                        setSelectedAllocation(null);
+                      }
+                    }}
+                    onSelectStore={handleSelectStore}
+                  />
+                ) : activeStageTab === 'stage3' ? (
+                  <FlowPanel
+                    result={flowResult}
+                    loading={loading}
+                    onSelectAllocation={setSelectedAllocation}
+                    onSelectStore={handleSelectStore}
+                  />
+                ) : activeStageTab === 'stage2' ? (
+                  <ReachabilityPanel
+                    result={reachabilityResult}
+                    loading={loading}
+                  />
+                ) : (
+                  <FeasibilityPanel
+                    result={feasibilityResult}
+                    loading={loading}
+                  />
+                )}
+              </div>
             </div>
-
-            {/* Active Panel View */}
-            {activeStageTab === 'stage3' ? (
-              <FlowPanel
-                result={flowResult}
-                loading={loading}
-                onSelectAllocation={setSelectedAllocation}
-                onSelectStore={handleSelectStore}
-              />
-            ) : activeStageTab === 'stage2' ? (
-              <ReachabilityPanel
-                result={reachabilityResult}
-                loading={loading}
-              />
-            ) : (
-              <FeasibilityPanel
-                result={feasibilityResult}
-                loading={loading}
-              />
-            )}
-          </div>
-        </div>
+          </>
+        )}
       </main>
 
       <footer className="border-t border-neutral-900 py-4 px-6 text-center text-xs text-neutral-500 font-mono">

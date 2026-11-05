@@ -4,18 +4,52 @@ import { ExternalLink } from 'lucide-react';
 interface HeaderProps {
   backendOnline?: boolean;
   activeScenarioName: string;
+  activeView?: 'simulator' | 'fleet';
+  onChangeView?: (view: 'simulator' | 'fleet') => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ activeScenarioName }) => {
+export const Header: React.FC<HeaderProps> = ({
+  activeScenarioName,
+  activeView = 'simulator',
+  onChangeView,
+}) => {
   return (
     <header className="bg-black border-b border-neutral-800 px-6 py-4 flex flex-wrap items-center justify-between gap-4 font-mono">
-      <div>
-        <h1 className="text-base font-bold tracking-widest uppercase text-white">
-          ScenariGo
-        </h1>
-        <p className="text-xs text-neutral-400">
-          Discrete Optimization & Multi-Modal Logistics Simulation
-        </p>
+      <div className="flex items-center space-x-6">
+        <div>
+          <h1 className="text-base font-bold tracking-widest uppercase text-white">
+            ScenariGo
+          </h1>
+          <p className="text-xs text-neutral-400">
+            Discrete Optimization & Multi-Modal Logistics Simulation
+          </p>
+        </div>
+
+        {/* View Switcher: Simulator vs Manage Fleet */}
+        <div className="flex items-center space-x-1 bg-neutral-950 p-1 rounded border border-neutral-800">
+          <button
+            type="button"
+            onClick={() => onChangeView?.('simulator')}
+            className={`px-3 py-1 rounded text-xs font-bold transition-colors cursor-pointer ${
+              activeView === 'simulator'
+                ? 'bg-white text-black'
+                : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            SIMULATOR
+          </button>
+          <button
+            type="button"
+            onClick={() => onChangeView?.('fleet')}
+            className={`px-3 py-1 rounded text-xs font-bold transition-colors cursor-pointer ${
+              activeView === 'fleet'
+                ? 'bg-white text-black'
+                : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            MANAGE FLEET
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center space-x-5">
