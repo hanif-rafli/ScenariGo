@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { TruckInstance, DispatchItinerary } from '../types/simulation';
-import { Truck, Fuel, Gauge, Weight, MapPin, CheckCircle2, Clock, Plus, X } from 'lucide-react';
 
 interface ManageFleetProps {
   fleet: TruckInstance[];
@@ -68,14 +67,14 @@ export const ManageFleet: React.FC<ManageFleetProps> = ({
   };
 
   return (
-    <div className="space-y-6 font-mono">
+    <div className="space-y-6 font-mono text-white">
       {/* 1. Header Banner & Actions */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-neutral-800 pb-4">
         <div>
-          <h2 className="text-lg font-bold uppercase tracking-wider text-white">
+          <h2 className="text-lg font-bold uppercase tracking-wider">
             Commercial Fleet Asset Management
           </h2>
-          <p className="text-xs text-neutral-400">
+          <p className="text-xs text-white">
             Physical vehicle specifications, tank capacities, and assigned store delivery missions
           </p>
         </div>
@@ -83,65 +82,64 @@ export const ManageFleet: React.FC<ManageFleetProps> = ({
         <div className="flex items-center space-x-3">
           <button
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center space-x-2 px-3 py-1.5 rounded bg-white hover:bg-neutral-200 text-black text-xs font-bold transition-colors cursor-pointer"
+            className="px-3 py-1.5 rounded-none bg-white hover:bg-neutral-200 text-black text-xs font-bold transition-colors cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>ADD TRUCK</span>
+            + ADD TRUCK
           </button>
         </div>
       </div>
 
       {/* 2. Fleet Overview Metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-neutral-950 border border-neutral-800 p-3 rounded">
-          <div className="text-[10px] text-neutral-500 uppercase tracking-wider">Total Fleet</div>
-          <div className="text-xl font-bold text-white mt-0.5">{fleet.length} <span className="text-xs text-neutral-500 font-normal">trucks</span></div>
+        <div className="bg-neutral-950 p-3 rounded-none">
+          <div className="text-[10px] text-white uppercase tracking-wider">Total Fleet</div>
+          <div className="text-xl font-bold mt-0.5">{fleet.length} <span className="text-xs font-normal">trucks</span></div>
         </div>
-        <div className="bg-neutral-950 border border-neutral-800 p-3 rounded">
-          <div className="text-[10px] text-neutral-500 uppercase tracking-wider">Assigned to Tasks</div>
-          <div className="text-xl font-bold text-amber-400 mt-0.5">{assignedCount} <span className="text-xs text-neutral-500 font-normal">active</span></div>
+        <div className="bg-neutral-950 p-3 rounded-none">
+          <div className="text-[10px] text-white uppercase tracking-wider">Assigned to Tasks</div>
+          <div className="text-xl font-bold mt-0.5">{assignedCount} <span className="text-xs font-normal">active</span></div>
         </div>
-        <div className="bg-neutral-950 border border-neutral-800 p-3 rounded">
-          <div className="text-[10px] text-neutral-500 uppercase tracking-wider">Idle / Standby</div>
-          <div className="text-xl font-bold text-neutral-300 mt-0.5">{idleCount} <span className="text-xs text-neutral-500 font-normal">ready</span></div>
+        <div className="bg-neutral-950 p-3 rounded-none">
+          <div className="text-[10px] text-white uppercase tracking-wider">Idle / Standby</div>
+          <div className="text-xl font-bold mt-0.5">{idleCount} <span className="text-xs font-normal">ready</span></div>
         </div>
-        <div className="bg-neutral-950 border border-neutral-800 p-3 rounded">
-          <div className="text-[10px] text-neutral-500 uppercase tracking-wider">Total Payload Capacity</div>
-          <div className="text-xl font-bold text-white mt-0.5">
-            {fleet.reduce((acc, t) => acc + t.payload_capacity_kg, 0).toLocaleString()} <span className="text-xs text-neutral-500 font-normal">kg</span>
+        <div className="bg-neutral-950 p-3 rounded-none">
+          <div className="text-[10px] text-white uppercase tracking-wider">Total Payload Capacity</div>
+          <div className="text-xl font-bold mt-0.5">
+            {fleet.reduce((acc, t) => acc + t.payload_capacity_kg, 0).toLocaleString()} <span className="text-xs font-normal">kg</span>
           </div>
         </div>
       </div>
 
       {/* 3. Filter Controls */}
       <div className="flex items-center space-x-2 text-xs border-y border-neutral-900 py-2.5">
-        <span className="text-neutral-500 uppercase tracking-wider text-[11px]">Filter Fleet:</span>
+        <span className="uppercase tracking-wider text-[11px]">Filter Fleet:</span>
         <button
           onClick={() => setFilterStatus('ALL')}
-          className={`px-2.5 py-1 rounded text-xs transition-colors ${
+          className={`px-2.5 py-1 rounded-none text-xs transition-colors cursor-pointer ${
             filterStatus === 'ALL'
               ? 'bg-white text-black font-bold'
-              : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+              : 'bg-black text-white hover:bg-neutral-900'
           }`}
         >
           ALL ({fleet.length})
         </button>
         <button
           onClick={() => setFilterStatus('ASSIGNED')}
-          className={`px-2.5 py-1 rounded text-xs transition-colors ${
+          className={`px-2.5 py-1 rounded-none text-xs transition-colors cursor-pointer ${
             filterStatus === 'ASSIGNED'
               ? 'bg-white text-black font-bold'
-              : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+              : 'bg-black text-white hover:bg-neutral-900'
           }`}
         >
           ASSIGNED ({assignedCount})
         </button>
         <button
           onClick={() => setFilterStatus('IDLE')}
-          className={`px-2.5 py-1 rounded text-xs transition-colors ${
+          className={`px-2.5 py-1 rounded-none text-xs transition-colors cursor-pointer ${
             filterStatus === 'IDLE'
               ? 'bg-white text-black font-bold'
-              : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+              : 'bg-black text-white hover:bg-neutral-900'
           }`}
         >
           IDLE ({idleCount})
@@ -158,33 +156,30 @@ export const ManageFleet: React.FC<ManageFleetProps> = ({
           return (
             <div
               key={truck.truck_id}
-              className="bg-black border border-neutral-800 rounded-lg overflow-hidden shadow-2xl flex flex-col justify-between"
+              className="bg-neutral-950 rounded-none overflow-hidden flex flex-col justify-between"
             >
               <div>
                 {/* Real Commercial Truck Photography */}
-                <div className="relative w-full h-44 bg-neutral-950 border-b border-neutral-800 overflow-hidden">
+                <div className="relative w-full h-44 bg-black overflow-hidden rounded-none">
                   <img
                     src={truck.image_url}
                     alt={truck.name}
-                    className="w-full h-full object-cover transition-transform hover:scale-105 duration-300"
+                    className="w-full h-full object-cover transition-transform hover:scale-105 duration-300 rounded-none"
                     onError={(e) => {
-                      // Fallback if image path differs
                       (e.target as HTMLImageElement).src = '/assets/trucks/isuzu_3ton.jpg';
                     }}
                   />
-                  <div className="absolute top-2 left-2 bg-black/90 backdrop-blur px-2 py-0.5 rounded border border-neutral-700 text-[10px] text-white font-bold">
+                  <div className="absolute top-2 left-2 bg-black px-2 py-0.5 rounded-none border border-neutral-700 text-[10px] text-white font-bold">
                     {truck.truck_id}
                   </div>
                   <div className="absolute top-2 right-2">
                     {isAssigned ? (
-                      <span className="flex items-center space-x-1 px-2 py-0.5 rounded bg-amber-950/90 border border-amber-600 text-amber-300 text-[10px] font-bold">
-                        <Clock className="w-3 h-3 text-amber-400" />
-                        <span>[ASSIGNED]</span>
+                      <span className="px-2 py-0.5 rounded-none bg-black border border-white text-white text-[10px] font-bold">
+                        [ASSIGNED]
                       </span>
                     ) : (
-                      <span className="flex items-center space-x-1 px-2 py-0.5 rounded bg-neutral-900/90 border border-neutral-700 text-neutral-400 text-[10px] font-bold">
-                        <CheckCircle2 className="w-3 h-3 text-neutral-400" />
-                        <span>[IDLE]</span>
+                      <span className="px-2 py-0.5 rounded-none bg-neutral-900 text-white text-[10px] font-bold">
+                        [IDLE]
                       </span>
                     )}
                   </div>
@@ -192,92 +187,77 @@ export const ManageFleet: React.FC<ManageFleetProps> = ({
 
                 {/* Truck Identification */}
                 <div className="p-4 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="text-sm font-bold text-white tracking-wide">{truck.name}</h3>
-                      <div className="flex items-center space-x-1.5 text-xs text-neutral-400 mt-0.5">
-                        <MapPin className="w-3 h-3 text-neutral-500" />
-                        <span>Base: {truck.current_location_name}</span>
-                      </div>
+                  <div>
+                    <h3 className="text-sm font-bold tracking-wide">{truck.name}</h3>
+                    <div className="text-xs text-white mt-0.5">
+                      Base: {truck.current_location_name}
                     </div>
                   </div>
 
                   {/* Physical Specifications (2x2 Grid) */}
-                  <div className="grid grid-cols-2 gap-2 text-xs bg-neutral-950 p-2.5 rounded border border-neutral-900">
-                    <div className="flex items-center space-x-2">
-                      <Fuel className="w-3.5 h-3.5 text-neutral-500" />
-                      <div>
-                        <span className="text-[10px] text-neutral-500 block uppercase">Tank Size</span>
-                        <span className="font-bold text-white">{truck.fuel_tank_capacity_l} L</span>
-                      </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs bg-black p-2.5 rounded-none">
+                    <div>
+                      <span className="text-[10px] block uppercase">Tank Size</span>
+                      <span className="font-bold">{truck.fuel_tank_capacity_l} L</span>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Gauge className="w-3.5 h-3.5 text-neutral-500" />
-                      <div>
-                        <span className="text-[10px] text-neutral-500 block uppercase">Efficiency</span>
-                        <span className="font-bold text-white">{truck.fuel_economy_kmpl} km/L</span>
-                      </div>
+                    <div>
+                      <span className="text-[10px] block uppercase">Efficiency</span>
+                      <span className="font-bold">{truck.fuel_economy_kmpl} km/L</span>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Weight className="w-3.5 h-3.5 text-neutral-500" />
-                      <div>
-                        <span className="text-[10px] text-neutral-500 block uppercase">Payload</span>
-                        <span className="font-bold text-white">{truck.payload_capacity_kg.toLocaleString()} kg</span>
-                      </div>
+                    <div>
+                      <span className="text-[10px] block uppercase">Payload</span>
+                      <span className="font-bold">{truck.payload_capacity_kg.toLocaleString()} kg</span>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Truck className="w-3.5 h-3.5 text-neutral-500" />
-                      <div>
-                        <span className="text-[10px] text-neutral-500 block uppercase">Max Range</span>
-                        <span className="font-bold text-white">{cruisingRange} km</span>
-                      </div>
+                    <div>
+                      <span className="text-[10px] block uppercase">Max Range</span>
+                      <span className="font-bold">{cruisingRange} km</span>
                     </div>
                   </div>
 
                   {/* Allocated Task Section */}
                   <div className="border-t border-neutral-900 pt-3 space-y-1.5">
-                    <div className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold">
+                    <div className="text-[10px] uppercase tracking-wider font-bold">
                       Allocated Delivery Task:
                     </div>
 
                     {task ? (
-                      <div className="bg-neutral-950 p-2.5 rounded border border-amber-900/50 space-y-2 text-xs">
+                      <div className="bg-black p-2.5 rounded-none space-y-2 text-xs">
                         <div className="flex justify-between items-center text-white">
-                          <span className="font-bold text-amber-400">
+                          <span className="font-bold">
                             Deliver to: {task.target_store_name}
                           </span>
-                          <span className="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-700 text-[10px] text-white font-bold">
+                          <span className="px-1.5 py-0.5 bg-neutral-900 border border-neutral-700 text-[10px] font-bold rounded-none">
                             P{task.product_id} &times; {task.quantity_units} units
                           </span>
                         </div>
 
-                        <div className="text-[11px] text-neutral-400">
-                          Pickup: <span className="text-white">{task.source_warehouse_name}</span>
+                        <div className="text-[11px]">
+                          Pickup: <span className="font-bold">{task.source_warehouse_name}</span>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-1 pt-1.5 border-t border-neutral-900 text-[10px] text-neutral-400 font-mono">
+                        <div className="grid grid-cols-3 gap-1 pt-1.5 border-t border-neutral-900 text-[10px] font-mono">
                           <div>
-                            <span className="block text-neutral-500">Distance</span>
-                            <span className="text-white font-bold">{task.total_distance_km} km</span>
+                            <span className="block">Distance</span>
+                            <span className="font-bold">{task.total_distance_km} km</span>
                           </div>
                           <div>
-                            <span className="block text-neutral-500">Fuel Used</span>
-                            <span className="text-white font-bold">{task.total_fuel_liters} L</span>
+                            <span className="block">Fuel Used</span>
+                            <span className="font-bold">{task.total_fuel_liters} L</span>
                           </div>
                           <div>
-                            <span className="block text-neutral-500">Fuel Cost</span>
-                            <span className="text-amber-400 font-bold">MYR {task.total_fuel_cost_myr.toFixed(2)}</span>
+                            <span className="block">Fuel Cost</span>
+                            <span className="font-bold">MYR {task.total_fuel_cost_myr.toFixed(2)}</span>
                           </div>
                         </div>
 
                         {task.is_refueled && (
-                          <div className="text-[10px] text-cyan-300 bg-cyan-950/40 border border-cyan-800 p-1.5 rounded">
+                          <div className="text-[10px] bg-neutral-900 border border-white p-1.5 rounded-none">
                             Includes Refueling Stop: {task.refueling_stops[0]?.station_name}
                           </div>
                         )}
                       </div>
                     ) : (
-                      <div className="bg-neutral-950 p-2.5 rounded border border-neutral-900 text-xs text-neutral-500 italic">
+                      <div className="bg-black p-2.5 rounded-none text-xs italic">
                         [IDLE] Vehicle is on standby in depot. No task assigned for this round.
                       </div>
                     )}
@@ -291,23 +271,23 @@ export const ManageFleet: React.FC<ManageFleetProps> = ({
 
       {/* 5. Add Truck Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-neutral-950 border border-neutral-800 rounded-lg max-w-md w-full p-6 space-y-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-neutral-950 border border-white rounded-none max-w-md w-full p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
               <h3 className="text-sm font-bold uppercase tracking-wider text-white">
                 Add Vehicle to Fleet
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-neutral-500 hover:text-white transition-colors"
+                className="text-white hover:underline text-xs font-bold cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                [X]
               </button>
             </div>
 
             <form onSubmit={handleCreateTruck} className="space-y-3 text-xs">
               <div>
-                <label className="block text-neutral-400 uppercase text-[10px] mb-1">
+                <label className="block text-white uppercase text-[10px] mb-1">
                   Truck Name / Identifier
                 </label>
                 <input
@@ -316,12 +296,12 @@ export const ManageFleet: React.FC<ManageFleetProps> = ({
                   placeholder="e.g. Isuzu Forward 3-Ton #04"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-black border border-neutral-800 focus:border-white px-3 py-2 rounded text-white font-mono outline-none"
+                  className="w-full bg-black border border-neutral-700 focus:border-white px-3 py-2 rounded-none text-white font-mono outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-neutral-400 uppercase text-[10px] mb-1">
+                <label className="block text-white uppercase text-[10px] mb-1">
                   Vehicle Commercial Model
                 </label>
                 <select
@@ -339,7 +319,7 @@ export const ManageFleet: React.FC<ManageFleetProps> = ({
                       setPayloadKg(900);
                     }
                   }}
-                  className="w-full bg-black border border-neutral-800 focus:border-white px-3 py-2 rounded text-white font-mono outline-none"
+                  className="w-full bg-black border border-neutral-700 focus:border-white px-3 py-2 rounded-none text-white font-mono outline-none"
                 >
                   <option value="isuzu_3ton">Isuzu 3-Ton Box Lorry (3,500 kg Payload)</option>
                   <option value="tata_ace">Tata Ace Gold Mini Truck (900 kg Payload)</option>
@@ -348,7 +328,7 @@ export const ManageFleet: React.FC<ManageFleetProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-neutral-400 uppercase text-[10px] mb-1">
+                  <label className="block text-white uppercase text-[10px] mb-1">
                     Tank Capacity (L)
                   </label>
                   <input
@@ -358,11 +338,11 @@ export const ManageFleet: React.FC<ManageFleetProps> = ({
                     step="1"
                     value={tankLiters}
                     onChange={(e) => setTankLiters(Number(e.target.value))}
-                    className="w-full bg-black border border-neutral-800 focus:border-white px-3 py-2 rounded text-white font-mono outline-none"
+                    className="w-full bg-black border border-neutral-700 focus:border-white px-3 py-2 rounded-none text-white font-mono outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-neutral-400 uppercase text-[10px] mb-1">
+                  <label className="block text-white uppercase text-[10px] mb-1">
                     Fuel Economy (km/L)
                   </label>
                   <input
@@ -372,14 +352,14 @@ export const ManageFleet: React.FC<ManageFleetProps> = ({
                     step="0.5"
                     value={kmpl}
                     onChange={(e) => setKmpl(Number(e.target.value))}
-                    className="w-full bg-black border border-neutral-800 focus:border-white px-3 py-2 rounded text-white font-mono outline-none"
+                    className="w-full bg-black border border-neutral-700 focus:border-white px-3 py-2 rounded-none text-white font-mono outline-none"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-neutral-400 uppercase text-[10px] mb-1">
+                  <label className="block text-white uppercase text-[10px] mb-1">
                     Payload Limit (kg)
                   </label>
                   <input
@@ -389,17 +369,17 @@ export const ManageFleet: React.FC<ManageFleetProps> = ({
                     step="50"
                     value={payloadKg}
                     onChange={(e) => setPayloadKg(Number(e.target.value))}
-                    className="w-full bg-black border border-neutral-800 focus:border-white px-3 py-2 rounded text-white font-mono outline-none"
+                    className="w-full bg-black border border-neutral-700 focus:border-white px-3 py-2 rounded-none text-white font-mono outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-neutral-400 uppercase text-[10px] mb-1">
+                  <label className="block text-white uppercase text-[10px] mb-1">
                     Base Station
                   </label>
                   <select
                     value={baseLocation}
                     onChange={(e) => setBaseLocation(e.target.value)}
-                    className="w-full bg-black border border-neutral-800 focus:border-white px-3 py-2 rounded text-white font-mono outline-none"
+                    className="w-full bg-black border border-neutral-700 focus:border-white px-3 py-2 rounded-none text-white font-mono outline-none"
                   >
                     <option value="Kuala Lumpur Hub">Kuala Lumpur Hub</option>
                     <option value="Penang Logistics Dep">Penang Logistics Dep</option>
@@ -412,13 +392,13 @@ export const ManageFleet: React.FC<ManageFleetProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 rounded text-xs transition-colors"
+                  className="px-3 py-1.5 bg-black hover:bg-neutral-900 text-white rounded-none text-xs transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-white hover:bg-neutral-200 text-black font-bold rounded text-xs transition-colors"
+                  className="px-4 py-1.5 bg-white hover:bg-neutral-200 text-black font-bold rounded-none text-xs transition-colors cursor-pointer"
                 >
                   Save Vehicle
                 </button>

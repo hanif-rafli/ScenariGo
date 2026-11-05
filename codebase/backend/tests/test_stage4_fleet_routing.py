@@ -38,6 +38,10 @@ def test_baseline_fleet_routing_budget_feasible(baseline_scenario: SimulationReq
     assert stage4_res.total_transport_cost_myr <= 7000.0
     assert stage4_res.budget_variance_myr >= 0
     assert any("[VERIFIED: BUDGET COMPLIANT]" in t for t in stage4_res.tokens)
+    assert stage4_res.graph_trace is not None
+    assert stage4_res.graph_trace.graph_type == "BIPARTITE_MIN_COST"
+    assert len(stage4_res.graph_trace.nodes) > 0
+    assert len(stage4_res.graph_trace.steps) > 1
 
 
 def test_fleet_routing_overbudget_fails_with_token(baseline_scenario: SimulationRequest):

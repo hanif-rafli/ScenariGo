@@ -1,6 +1,8 @@
+from typing import Optional
 from enum import Enum
 from pydantic import BaseModel, Field
 from app.models.graph import Modality
+from app.models.graph_trace import NetworkFlowGraphTrace
 
 
 class AllocationStatus(str, Enum):
@@ -75,3 +77,4 @@ class Stage3Result(BaseModel):
     bottleneck_details: list[BottleneckDetail] = Field(default_factory=list)
     tokens: list[str] = Field(default_factory=list)
     summary: str
+    graph_trace: Optional[NetworkFlowGraphTrace] = None

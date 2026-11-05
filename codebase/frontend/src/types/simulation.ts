@@ -165,6 +165,48 @@ export interface FlowEdgeUtilization {
   is_saturated: boolean;
 }
 
+// Graph Visualization Trace Models
+export interface GraphNode {
+  node_id: string;
+  short_label: string;
+  layer: number;
+  node_type: string;
+  title: string;
+  metadata: Record<string, any>;
+}
+
+export interface GraphEdgeSnapshot {
+  edge_id: string;
+  source: string;
+  target: string;
+  flow: number;
+  capacity: number;
+  lower_bound: number;
+  residual_forward: number;
+  residual_backward: number;
+  cost_myr?: number | null;
+  in_augmenting_path: boolean;
+  edge_type: string;
+}
+
+export interface GraphIterationStep {
+  step_index: number;
+  label: string;
+  description: string;
+  bottleneck_flow: number;
+  cumulative_flow: number;
+  cumulative_cost_myr: number;
+  augmenting_path_nodes: string[];
+  augmenting_path_edges: string[];
+  edges: GraphEdgeSnapshot[];
+}
+
+export interface NetworkFlowGraphTrace {
+  graph_type: 'CIRCULATION_DEMANDS' | 'BIPARTITE_MIN_COST';
+  nodes: GraphNode[];
+  steps: GraphIterationStep[];
+}
+
 export interface Stage3Result {
   is_flow_feasible: boolean;
   total_demand_satisfied: number;
@@ -176,6 +218,7 @@ export interface Stage3Result {
   bottleneck_details?: BottleneckDetail[];
   tokens: string[];
   summary: string;
+  graph_trace?: NetworkFlowGraphTrace;
 }
 
 // Stage 4: Fleet Routing, Fuel Range & Budget Pacing
@@ -253,4 +296,5 @@ export interface Stage4Result {
   available_trucks: TruckInstance[];
   tokens: string[];
   summary: string;
+  graph_trace?: NetworkFlowGraphTrace;
 }
