@@ -1,6 +1,7 @@
 from enum import Enum
 from typing import Optional
 from pydantic import BaseModel, Field
+from app.models.graph_trace import NetworkFlowGraphTrace
 
 
 class TripLegType(str, Enum):
@@ -81,3 +82,4 @@ class Stage4Result(BaseModel):
     available_trucks: list[TruckInstance] = Field(default_factory=list)
     tokens: list[str] = Field(default_factory=list)
     summary: str
+    graph_trace: Optional[NetworkFlowGraphTrace] = None

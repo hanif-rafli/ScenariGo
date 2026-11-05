@@ -13,6 +13,12 @@ from typing import Optional
 from app.models.entities import Warehouse, Store, EconomicParameters
 from app.models.graph import Modality
 from app.models.flow import AllocationItem, RouteType, AllocationStatus
+from app.models.graph_trace import (
+    GraphNode,
+    GraphEdgeSnapshot,
+    GraphIterationStep,
+    NetworkFlowGraphTrace,
+)
 from app.models.fleet import (
     TripLegType,
     RefuelingStop,
@@ -291,6 +297,183 @@ def solve_fleet_routing(
     matches = hungarian_min_cost_assignment(cost_matrix)
     assigned_tasks_set = {c for _, c in matches}
 
+    # 3.1 Construct Bipartite Min-Cost Flow Network Trace
+    graph_nodes: list[GraphNode] = [
+        GraphNode(
+            node_id="SRC",
+            short_label="SRC",
+            layer=0,
+            node_type="SOURCE",
+            title="Commercial Fleet Depot Source",
+            metadata={"role": "Supplies available vehicle capacity for assignment."},
+        )
+    ]
+
+    for truck in fleet:
+        graph_nodes.append(
+            GraphNode(
+                node_id=f"TRK_{truck.truck_id}",
+                short_label=truck.truck_id,
+                layer=1,
+                node_type="TRUCK",
+                title=f"{truck.name} ({truck.truck_id})",
+                metadata={
+                    "name": truck.name,
+                    "model": truck.model_id,
+                    "base_location": truck.current_location_name,
+                    "payload_capacity_kg": truck.payload_capacity_kg,
+                    "fuel_tank_capacity_l": truck.fuel_tank_capacity_l,
+                    "fuel_economy_kmpl": truck.fuel_economy_kmpl,
+                },
+            )
+        )
+
+    for k_idx, task in enumerate(land_tasks):
+        graph_nodes.append(
+            GraphNode(
+                node_id=f"TASK_{k_idx + 1}",
+                short_label=f"(S{task.target_id},P{task.product_id})",
+                layer=2,
+                node_type="TASK",
+                title=f"Task {k_idx + 1}: {task.source_name} -> {task.target_name}",
+                metadata={
+                    "allocation_id": task.allocation_id,
+                    "source": task.source_name,
+                    "destination": task.target_name,
+                    "product_id": task.product_id,
+                    "quantity_units": task.quantity,
+                    "distance_km": task.distance_km,
+                    "transit_hours": task.transit_hours,
+                },
+            )
+        )
+
+    graph_nodes.append(
+        GraphNode(
+            node_id="SNK",
+            short_label="SNK",
+            layer=3,
+            node_type="SINK",
+            title="Fulfillment Sink",
+            metadata={"role": "Collects completed retail delivery tasks."},
+        )
+    )
+
+    base_edges_dict: dict[str, dict[str, Any]] = {}
+    for truck in fleet:
+        e_id = f"SRC->TRK_{truck.truck_id}"
+        base_edges_dict[e_id] = {
+            "source": "SRC",
+            "target": f"TRK_{truck.truck_id}",
+            "capacity": 1,
+            "cost_myr": 0.0,
+            "edge_type": "FLEET_DISPATCH",
+        }
+
+    for t_idx, truck in enumerate(fleet):
+        for k_idx, task in enumerate(land_tasks):
+            if cost_matrix[t_idx][k_idx] < 1e8:
+                e_id = f"TRK_{truck.truck_id}->TASK_{k_idx + 1}"
+                base_edges_dict[e_id] = {
+                    "source": f"TRK_{truck.truck_id}",
+                    "target": f"TASK_{k_idx + 1}",
+                    "capacity": 1,
+                    "cost_myr": task_metadata[(t_idx, k_idx)]["total_fuel_cost"],
+                    "edge_type": "ASSIGNMENT_CANDIDATE",
+                }
+
+    for k_idx, task in enumerate(land_tasks):
+        e_id = f"TASK_{k_idx + 1}->SNK"
+        base_edges_dict[e_id] = {
+            "source": f"TASK_{k_idx + 1}",
+            "target": "SNK",
+            "capacity": 1,
+            "cost_myr": 0.0,
+            "edge_type": "TASK_FULFILLMENT",
+        }
+
+    def make_mcmf_snapshot(flow_state: dict[str, int], active_path: set[str]) -> list[GraphEdgeSnapshot]:
+        snapshots: list[GraphEdgeSnapshot] = []
+        for e_id, info in base_edges_dict.items():
+            f = flow_state.get(e_id, 0)
+            c = info["capacity"]
+            snapshots.append(
+                GraphEdgeSnapshot(
+                    edge_id=e_id,
+                    source=info["source"],
+                    target=info["target"],
+                    flow=f,
+                    capacity=c,
+                    lower_bound=0,
+                    residual_forward=c - f,
+                    residual_backward=f,
+                    cost_myr=info["cost_myr"],
+                    in_augmenting_path=e_id in active_path,
+                    edge_type=info["edge_type"],
+                )
+            )
+        return snapshots
+
+    timeline_steps: list[GraphIterationStep] = [
+        GraphIterationStep(
+            step_index=0,
+            label="STEP 0: UNASSIGNED FLEET NETWORK",
+            description="Bipartite Min-Cost Flow network formulated: Commercial Fleet (Layer 1) to Land Delivery Tasks (Layer 2). Directed edge weights reflect exact fuel cost (MYR) per route.",
+            bottleneck_flow=0,
+            cumulative_flow=0,
+            cumulative_cost_myr=0.0,
+            augmenting_path_nodes=[],
+            augmenting_path_edges=[],
+            edges=make_mcmf_snapshot({}, set()),
+        )
+    ]
+
+    current_flows: dict[str, int] = {}
+    cum_cost = 0.0
+    cum_flow = 0
+
+    for match_idx, (t_idx, k_idx) in enumerate(matches):
+        truck = fleet[t_idx]
+        task = land_tasks[k_idx]
+        meta = task_metadata[(t_idx, k_idx)]
+        fuel_cost = meta["total_fuel_cost"]
+        cum_cost += fuel_cost
+        cum_flow += 1
+
+        t_node_id = f"TRK_{truck.truck_id}"
+        task_node_id = f"TASK_{k_idx + 1}"
+        e1 = f"SRC->{t_node_id}"
+        e2 = f"{t_node_id}->{task_node_id}"
+        e3 = f"{task_node_id}->SNK"
+
+        current_flows[e1] = 1
+        current_flows[e2] = 1
+        current_flows[e3] = 1
+
+        path_nodes = ["SRC", t_node_id, task_node_id, "SNK"]
+        path_edges = [e1, e2, e3]
+        task_label = f"(S{task.target_id},P{task.product_id})"
+
+        timeline_steps.append(
+            GraphIterationStep(
+                step_index=match_idx + 1,
+                label=f"STEP {match_idx + 1}: ASSIGN {truck.truck_id} -> {task_label}",
+                description=f"Augmented min-cost path: SRC -> {truck.truck_id} -> {task_label} -> SNK. Additional fuel cost: MYR {fuel_cost:.2f}. Cumulative fleet fuel cost: MYR {cum_cost:.2f}.",
+                bottleneck_flow=1,
+                cumulative_flow=cum_flow,
+                cumulative_cost_myr=round(cum_cost, 2),
+                augmenting_path_nodes=path_nodes,
+                augmenting_path_edges=path_edges,
+                edges=make_mcmf_snapshot(current_flows, set(path_edges)),
+            )
+        )
+
+    stage4_graph_trace = NetworkFlowGraphTrace(
+        graph_type="BIPARTITE_MIN_COST",
+        nodes=graph_nodes,
+        steps=timeline_steps,
+    )
+
     itineraries: list[DispatchItinerary] = []
     total_fleet_fuel_cost = 0.0
 
@@ -427,4 +610,5 @@ def solve_fleet_routing(
         available_trucks=fleet,
         tokens=tokens,
         summary=summary,
+        graph_trace=stage4_graph_trace,
     )

@@ -89,7 +89,7 @@ export const MapView: React.FC<MapViewProps> = ({
   ];
 
   return (
-    <div className="relative w-full h-[580px] rounded-lg overflow-hidden border border-neutral-800 shadow-2xl bg-black">
+    <div className="relative w-full h-[580px] rounded-none overflow-hidden border border-neutral-800 bg-black">
       <MapContainer
         center={defaultCenter}
         zoom={defaultZoom}
@@ -289,7 +289,7 @@ export const MapView: React.FC<MapViewProps> = ({
       </MapContainer>
 
       {/* Floating Chromatic Map Legend */}
-      <div className="absolute bottom-4 right-4 z-[1000] bg-black/95 backdrop-blur border border-neutral-800 p-3 rounded shadow-2xl text-xs font-mono space-y-2">
+      <div className="absolute bottom-4 right-4 z-[1000] bg-black border border-neutral-800 p-3 rounded-none text-xs font-mono space-y-2">
         <div className="text-[10px] uppercase tracking-wider text-neutral-500 border-b border-neutral-800 pb-1 font-semibold">
           Network Topology Legend
         </div>

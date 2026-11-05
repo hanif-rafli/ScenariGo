@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Stage3Result, AllocationItem } from '../types/simulation';
-import { CheckCircle2, AlertTriangle, ArrowRight, Ship, Truck, Layers, Filter, XCircle } from 'lucide-react';
 
 interface FlowPanelProps {
   result: Stage3Result | null;
@@ -21,9 +20,9 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({
 
   if (loading) {
     return (
-      <div className="bg-black border border-neutral-800 rounded-lg p-6 font-mono text-center space-y-3 shadow-2xl">
-        <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
-        <p className="text-xs text-neutral-400 uppercase tracking-widest">
+      <div className="bg-neutral-950 p-6 font-mono text-center space-y-3 rounded-none">
+        <div className="inline-block animate-spin h-6 w-6 border-2 border-white border-t-transparent"></div>
+        <p className="text-xs text-white uppercase tracking-widest">
           Solving Ford-Fulkerson circulation with lower bounds...
         </p>
       </div>
@@ -32,7 +31,7 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({
 
   if (!result) {
     return (
-      <div className="bg-black border border-neutral-800 rounded-lg p-6 font-mono text-center text-xs text-neutral-500 shadow-2xl">
+      <div className="bg-neutral-950 p-6 font-mono text-center text-xs text-white rounded-none">
         Run simulation to compute multi-commodity network flow.
       </div>
     );
@@ -57,55 +56,53 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({
   const shortfallCount = result.allocations.filter((a) => a.status === 'SHORTFALL').length;
 
   return (
-    <div className="bg-black border border-neutral-800 rounded-lg p-5 font-mono space-y-5 shadow-2xl">
+    <div className="bg-neutral-950 p-5 font-mono space-y-5 rounded-none text-white">
       {/* 1. Header Status Badge */}
       <div className="flex items-start justify-between border-b border-neutral-800 pb-4">
         <div className="space-y-1">
           <div className="flex items-center space-x-2">
             {result.is_flow_feasible ? (
-              <span className="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-neutral-900 border border-white text-white text-xs font-bold">
-                <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                <span>[VERIFIED: STAGE 3 FLOW FEASIBLE]</span>
+              <span className="px-2.5 py-1 bg-white text-black text-xs font-bold rounded-none">
+                [VERIFIED: STAGE 3 FLOW FEASIBLE]
               </span>
             ) : (
-              <span className="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-neutral-900 border border-red-500 text-red-400 text-xs font-bold">
-                <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
-                <span>[FAIL: CIRCULATION BOTTLENECK]</span>
+              <span className="px-2.5 py-1 bg-black border border-white text-white text-xs font-bold rounded-none">
+                [FAIL: CIRCULATION BOTTLENECK]
               </span>
             )}
           </div>
-          <p className="text-xs text-neutral-300 pt-1 leading-relaxed">
+          <p className="text-xs text-white pt-1 leading-relaxed">
             {result.summary}
           </p>
         </div>
-        <span className="text-[10px] text-neutral-500 uppercase tracking-wider">
+        <span className="text-[10px] text-white uppercase tracking-wider">
           FORD-FULKERSON CIRCULATION
         </span>
       </div>
 
       {/* 2. Top-Level Flow Metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <div className="bg-neutral-950 border border-neutral-800 p-2.5 rounded">
-          <div className="text-[10px] text-neutral-400 uppercase tracking-wider">Satisfied</div>
+        <div className="bg-black p-2.5 rounded-none">
+          <div className="text-[10px] text-white uppercase tracking-wider">Satisfied</div>
           <div className="text-lg font-bold text-white mt-0.5">
-            {result.total_demand_satisfied} <span className="text-xs text-neutral-500 font-normal">/ {result.total_demand_requested}</span>
+            {result.total_demand_satisfied} <span className="text-xs font-normal">/ {result.total_demand_requested}</span>
           </div>
         </div>
-        <div className="bg-neutral-950 border border-neutral-800 p-2.5 rounded">
-          <div className="text-[10px] text-neutral-400 uppercase tracking-wider">Satisfaction</div>
-          <div className={`text-lg font-bold mt-0.5 ${result.satisfaction_rate_pct === 100 ? 'text-white' : 'text-red-400'}`}>
+        <div className="bg-black p-2.5 rounded-none">
+          <div className="text-[10px] text-white uppercase tracking-wider">Satisfaction</div>
+          <div className="text-lg font-bold text-white mt-0.5">
             {result.satisfaction_rate_pct}%
           </div>
         </div>
-        <div className="bg-neutral-950 border border-neutral-800 p-2.5 rounded">
-          <div className="text-[10px] text-neutral-400 uppercase tracking-wider">Shipments</div>
+        <div className="bg-black p-2.5 rounded-none">
+          <div className="text-[10px] text-white uppercase tracking-wider">Shipments</div>
           <div className="text-lg font-bold text-white mt-0.5">
-            {result.allocations.filter((a) => a.status === 'ALLOCATED').length} <span className="text-xs text-neutral-500 font-normal">flows</span>
+            {result.allocations.filter((a) => a.status === 'ALLOCATED').length} <span className="text-xs font-normal">flows</span>
           </div>
         </div>
-        <div className="bg-neutral-950 border border-neutral-800 p-2.5 rounded">
-          <div className="text-[10px] text-neutral-400 uppercase tracking-wider">Bottlenecks</div>
-          <div className={`text-lg font-bold mt-0.5 ${bottlenecks.length === 0 ? 'text-white' : 'text-red-400'}`}>
+        <div className="bg-black p-2.5 rounded-none">
+          <div className="text-[10px] text-white uppercase tracking-wider">Bottlenecks</div>
+          <div className="text-lg font-bold text-white mt-0.5">
             {bottlenecks.length}
           </div>
         </div>
@@ -113,13 +110,12 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({
 
       {/* 3. Granular Causal Bottleneck Traceability Panel */}
       {bottlenecks.length > 0 && (
-        <div className="border border-red-500/70 bg-red-950/20 rounded-lg p-3.5 space-y-3">
-          <div className="flex items-center justify-between border-b border-red-900/50 pb-2">
-            <div className="flex items-center space-x-2 text-xs font-bold text-red-400 uppercase tracking-wider">
-              <AlertTriangle className="w-4 h-4 text-red-400" />
-              <span>Root Cause & Bottleneck Traceability</span>
+        <div className="bg-black p-3.5 space-y-3 rounded-none border-l-2 border-white">
+          <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
+            <div className="text-xs font-bold text-white uppercase tracking-wider">
+              Root Cause & Bottleneck Traceability
             </div>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-red-900/40 text-red-300 border border-red-800 font-bold">
+            <span className="text-[10px] px-2 py-0.5 bg-white text-black font-bold rounded-none">
               {bottlenecks.length} UNFULFILLED DEMAND BOUND(S)
             </span>
           </div>
@@ -128,69 +124,64 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({
             {bottlenecks.map((b) => (
               <div
                 key={b.bottleneck_id}
-                className="bg-black/80 border border-red-900/80 rounded p-3 text-xs space-y-2 font-mono"
+                className="bg-neutral-900 p-3 text-xs space-y-2 font-mono rounded-none"
               >
                 {/* Specific Target & Shortfall Header */}
                 <div className="flex flex-wrap items-center justify-between gap-1 border-b border-neutral-800 pb-1.5">
                   <div className="flex items-center space-x-2">
-                    <span className="text-red-400 font-bold">{b.bottleneck_id}</span>
+                    <span className="font-bold">{b.bottleneck_id}</span>
                     <button
                       type="button"
                       onClick={() => onSelectStore?.(b.store_id)}
-                      className="text-white hover:text-cyan-400 font-bold underline decoration-neutral-600 hover:decoration-cyan-400 text-left transition-colors cursor-pointer flex items-center space-x-1.5"
+                      className="text-white hover:underline font-bold text-left cursor-pointer"
                       title="Click to pan camera to Store"
                     >
-                      <span>Store S{b.store_id}: {b.store_name}</span>
-                      <span className="text-[9px] px-1 py-0.5 rounded bg-neutral-900 border border-neutral-700 text-cyan-300 font-normal">
-                        PAN MAP
-                      </span>
+                      Store S{b.store_id}: {b.store_name} [PAN MAP]
                     </button>
                   </div>
                   <div className="flex items-center space-x-1.5 text-xs font-bold">
-                    <span className="px-1.5 py-0.5 bg-neutral-900 border border-neutral-700 text-white rounded">
+                    <span className="px-1.5 py-0.5 bg-black border border-white text-white rounded-none">
                       P{b.product_id}
                     </span>
-                    <span className="text-red-400">
-                      Shortfall: {b.shortfall_units} units
-                    </span>
+                    <span>Shortfall: {b.shortfall_units} units</span>
                   </div>
                 </div>
 
                 {/* Mathematical Equation & Quantification */}
-                <div className="grid grid-cols-3 gap-2 text-[11px] bg-neutral-950 p-2 rounded border border-neutral-800">
+                <div className="grid grid-cols-3 gap-2 text-[11px] bg-black p-2 rounded-none">
                   <div>
-                    <span className="text-neutral-500 block text-[10px] uppercase">Requested</span>
-                    <span className="text-white font-bold">{b.requested_units} units</span>
+                    <span className="block text-[10px] uppercase">Requested</span>
+                    <span className="font-bold">{b.requested_units} units</span>
                   </div>
                   <div>
-                    <span className="text-neutral-500 block text-[10px] uppercase">Delivered</span>
-                    <span className="text-white font-bold">{b.allocated_units} units</span>
+                    <span className="block text-[10px] uppercase">Delivered</span>
+                    <span className="font-bold">{b.allocated_units} units</span>
                   </div>
                   <div>
-                    <span className="text-neutral-500 block text-[10px] uppercase">Unmet Deficit</span>
-                    <span className="text-red-400 font-bold">{b.shortfall_units} units</span>
+                    <span className="block text-[10px] uppercase">Unmet Deficit</span>
+                    <span className="font-bold">{b.shortfall_units} units</span>
                   </div>
                 </div>
 
-                {/* Structured Cause Breakdown - Pure Key-Value, No Paragraphs */}
+                {/* Structured Cause Breakdown */}
                 <div className="grid grid-cols-2 gap-2 text-[11px]">
-                  <div className="bg-neutral-950 p-2 rounded border border-neutral-800">
-                    <span className="text-neutral-500 block text-[10px] uppercase">Root Cause</span>
-                    <span className="text-red-400 font-bold">
+                  <div className="bg-black p-2 rounded-none">
+                    <span className="block text-[10px] uppercase">Root Cause</span>
+                    <span className="font-bold">
                       {b.bottleneck_type === 'SUPPLY_EXHAUSTION' ? 'WAREHOUSE STOCK DEPLETED' : b.bottleneck_type}
                     </span>
                   </div>
-                  <div className="bg-neutral-950 p-2 rounded border border-neutral-800">
-                    <span className="text-neutral-500 block text-[10px] uppercase">Regional Supply Cap</span>
-                    <span className="text-white font-bold">
+                  <div className="bg-black p-2 rounded-none">
+                    <span className="block text-[10px] uppercase">Regional Supply Cap</span>
+                    <span className="font-bold">
                       {b.allocated_units} / {b.requested_units} units ({Math.round((b.allocated_units / b.requested_units) * 100)}% met)
                     </span>
                   </div>
                 </div>
 
                 {b.contributing_warehouses.length > 0 && (
-                  <div className="space-y-1.5 bg-neutral-950 p-2.5 rounded border border-neutral-800">
-                    <span className="text-[10px] uppercase tracking-wider text-neutral-400 font-bold block">
+                  <div className="space-y-1.5 bg-black p-2.5 rounded-none">
+                    <span className="text-[10px] uppercase tracking-wider font-bold block">
                       Depleted Supply Sources:
                     </span>
                     <div className="space-y-1">
@@ -201,10 +192,10 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({
                         return (
                           <div
                             key={`wh-dep-${idx}`}
-                            className="flex items-center justify-between text-[11px] bg-neutral-900/80 px-2 py-1 rounded border border-neutral-800"
+                            className="flex items-center justify-between text-[11px] bg-neutral-900 px-2 py-1 rounded-none"
                           >
-                            <span className="text-neutral-300 font-mono">{whName}</span>
-                            <span className="text-red-400 font-mono font-bold">{whStatus}</span>
+                            <span>{whName}</span>
+                            <span className="font-bold">[{whStatus}]</span>
                           </div>
                         );
                       })}
@@ -218,16 +209,15 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({
       )}
 
       {/* 4. Filter Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs border-y border-neutral-900 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs border-y border-neutral-800 py-2">
         <div className="flex items-center space-x-2">
-          <Filter className="w-3.5 h-3.5 text-neutral-500" />
-          <span className="text-neutral-400">Filter Product:</span>
+          <span>Filter Product:</span>
           <button
             onClick={() => setSelectedProduct('ALL')}
-            className={`px-2 py-0.5 rounded text-[11px] ${
+            className={`px-2 py-0.5 text-[11px] rounded-none cursor-pointer ${
               selectedProduct === 'ALL'
                 ? 'bg-white text-black font-bold'
-                : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+                : 'bg-black text-white hover:bg-neutral-900'
             }`}
           >
             ALL
@@ -236,10 +226,10 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({
             <button
               key={`filter-p-${pid}`}
               onClick={() => setSelectedProduct(pid)}
-              className={`px-2 py-0.5 rounded text-[11px] ${
+              className={`px-2 py-0.5 text-[11px] rounded-none cursor-pointer ${
                 selectedProduct === pid
                   ? 'bg-white text-black font-bold'
-                  : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+                  : 'bg-black text-white hover:bg-neutral-900'
               }`}
             >
               P{pid}
@@ -249,27 +239,27 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({
 
         <div className="flex items-center space-x-3">
           <div className="flex items-center space-x-1.5">
-            <span className="text-neutral-400">Modality:</span>
+            <span>Modality:</span>
             <button
               onClick={() => setSelectedModality('ALL')}
-              className={`px-2 py-0.5 rounded text-[11px] ${
-                selectedModality === 'ALL' ? 'bg-neutral-800 text-white' : 'text-neutral-500'
+              className={`px-2 py-0.5 text-[11px] rounded-none cursor-pointer ${
+                selectedModality === 'ALL' ? 'bg-white text-black font-bold' : 'bg-black text-white hover:bg-neutral-900'
               }`}
             >
               All
             </button>
             <button
               onClick={() => setSelectedModality('LAND')}
-              className={`px-2 py-0.5 rounded text-[11px] ${
-                selectedModality === 'LAND' ? 'bg-amber-900/60 text-amber-300 border border-amber-600' : 'text-neutral-500'
+              className={`px-2 py-0.5 text-[11px] rounded-none cursor-pointer ${
+                selectedModality === 'LAND' ? 'bg-white text-black font-bold' : 'bg-black text-white hover:bg-neutral-900'
               }`}
             >
               Land
             </button>
             <button
               onClick={() => setSelectedModality('MARITIME')}
-              className={`px-2 py-0.5 rounded text-[11px] ${
-                selectedModality === 'MARITIME' ? 'bg-sky-950 text-sky-400 border border-sky-600' : 'text-neutral-500'
+              className={`px-2 py-0.5 text-[11px] rounded-none cursor-pointer ${
+                selectedModality === 'MARITIME' ? 'bg-white text-black font-bold' : 'bg-black text-white hover:bg-neutral-900'
               }`}
             >
               Sea
@@ -280,10 +270,10 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({
             <div className="flex items-center space-x-1 border-l border-neutral-800 pl-3">
               <button
                 onClick={() => setStatusFilter(statusFilter === 'SHORTFALL' ? 'ALL' : 'SHORTFALL')}
-                className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-colors ${
+                className={`px-2 py-0.5 text-[10px] font-bold rounded-none cursor-pointer ${
                   statusFilter === 'SHORTFALL'
-                    ? 'bg-red-950 text-red-300 border-red-500'
-                    : 'bg-neutral-900 text-red-400 border-red-900 hover:border-red-700'
+                    ? 'bg-white text-black font-bold'
+                    : 'bg-black text-white hover:bg-neutral-900'
                 }`}
               >
                 Deficits Only ({shortfallCount})
@@ -295,17 +285,14 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({
 
       {/* 5. Commodity Allocation Matrix */}
       <div className="space-y-2">
-        <div className="text-xs font-bold uppercase tracking-wider text-neutral-300 flex items-center justify-between">
-          <span className="flex items-center space-x-1.5">
-            <Layers className="w-3.5 h-3.5 text-neutral-400" />
-            <span>Optimal Commodity Dispatches</span>
-          </span>
-          <span className="text-[11px] text-neutral-500 font-normal">
+        <div className="text-xs font-bold uppercase tracking-wider text-white flex items-center justify-between">
+          <span>Optimal Commodity Dispatches</span>
+          <span className="text-[11px] font-normal">
             {filteredAllocations.length} of {result.allocations.length} Displayed
           </span>
         </div>
 
-        <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
+        <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
           {filteredAllocations.map((alloc) => {
             const isSea = alloc.modality === 1;
             const isShortfall = alloc.status === 'SHORTFALL';
@@ -314,29 +301,28 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({
               return (
                 <div
                   key={alloc.allocation_id}
-                  className="bg-red-950/20 border border-red-500/70 p-2.5 rounded text-xs space-y-1.5 font-mono"
+                  className="bg-black p-2.5 text-xs space-y-1.5 font-mono rounded-none border-l-2 border-white"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <span className="font-bold text-red-400">{alloc.allocation_id}</span>
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-900/60 text-red-300 border border-red-700 flex items-center space-x-1">
-                        <XCircle className="w-3 h-3 text-red-400" />
-                        <span>UNFULFILLED DEFICIT</span>
+                      <span className="font-bold">{alloc.allocation_id}</span>
+                      <span className="px-1.5 py-0.5 text-[10px] font-bold bg-white text-black rounded-none">
+                        [UNFULFILLED DEFICIT]
                       </span>
                     </div>
                     <div className="flex items-center space-x-1">
-                      <span className="px-1.5 py-0.5 bg-neutral-900 border border-neutral-700 text-white font-bold rounded text-[11px]">
+                      <span className="px-1.5 py-0.5 bg-neutral-900 border border-white font-bold rounded-none text-[11px]">
                         P{alloc.product_id}
                       </span>
-                      <span className="text-red-400 font-bold text-sm">
+                      <span className="font-bold text-sm">
                         -{alloc.quantity} units
                       </span>
                     </div>
                   </div>
-                  <div className="text-[11px] text-neutral-300">
-                    Target: <span className="text-white font-bold">{alloc.target_name}</span> (ID: S{alloc.target_id})
+                  <div className="text-[11px]">
+                    Target: <span className="font-bold">{alloc.target_name}</span> (ID: S{alloc.target_id})
                   </div>
-                  <div className="text-[10px] text-red-400/90 border-t border-red-900/50 pt-1">
+                  <div className="text-[10px] border-t border-neutral-900 pt-1">
                     Failed demand lower bound. Insufficient upstream warehouse inventory or saturated transport corridor.
                   </div>
                 </div>
@@ -348,51 +334,35 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({
                 key={alloc.allocation_id}
                 onMouseEnter={() => onSelectAllocation && onSelectAllocation(alloc)}
                 onMouseLeave={() => onSelectAllocation && onSelectAllocation(null)}
-                className="bg-neutral-950 border border-neutral-800 hover:border-neutral-600 p-2.5 rounded text-xs space-y-1.5 transition-colors cursor-pointer"
+                className="bg-black hover:bg-neutral-900 p-2.5 text-xs space-y-1.5 transition-colors cursor-pointer rounded-none"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <span className="font-bold text-white">{alloc.allocation_id}</span>
-                    <span
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${
-                        isSea
-                          ? 'bg-sky-950 text-sky-300 border-sky-600'
-                          : 'bg-amber-950/70 text-amber-300 border-amber-600'
-                      }`}
-                    >
-                      {isSea ? (
-                        <span className="flex items-center space-x-1">
-                          <Ship className="w-2.5 h-2.5" />
-                          <span>SEA FAIRWAY</span>
-                        </span>
-                      ) : (
-                        <span className="flex items-center space-x-1">
-                          <Truck className="w-2.5 h-2.5" />
-                          <span>HIGHWAY E1</span>
-                        </span>
-                      )}
+                    <span className="font-bold">{alloc.allocation_id}</span>
+                    <span className="px-1.5 py-0.5 text-[10px] font-bold border border-neutral-700 rounded-none">
+                      {isSea ? '[SEA FAIRWAY]' : '[HIGHWAY E1]'}
                     </span>
                   </div>
                   <div className="flex items-center space-x-1">
-                    <span className="px-1.5 py-0.5 bg-neutral-900 border border-neutral-700 text-white font-bold rounded text-[11px]">
+                    <span className="px-1.5 py-0.5 bg-neutral-900 border border-neutral-700 font-bold rounded-none text-[11px]">
                       P{alloc.product_id}
                     </span>
-                    <span className="text-white font-bold text-sm">
+                    <span className="font-bold text-sm">
                       {alloc.quantity} units
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-1.5 text-neutral-300 text-[11px]">
-                  <span className="text-neutral-300">{alloc.source_name}</span>
-                  <ArrowRight className="w-3 h-3 text-neutral-500" />
+                <div className="flex items-center space-x-2 text-[11px]">
+                  <span>{alloc.source_name}</span>
+                  <span>&rarr;</span>
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       onSelectStore?.(alloc.target_id);
                     }}
-                    className="text-white font-bold hover:text-cyan-400 underline decoration-neutral-700 hover:decoration-cyan-400 transition-colors text-left cursor-pointer"
+                    className="font-bold hover:underline transition-colors text-left cursor-pointer"
                     title="Click to pan camera to destination store"
                   >
                     {alloc.target_name}
@@ -400,12 +370,12 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({
                 </div>
 
                 {isSea && alloc.departure_port_name && (
-                  <div className="text-[10px] text-sky-400">
+                  <div className="text-[10px]">
                     Transshipment: {alloc.departure_port_name} &rarr; {alloc.arrival_port_name}
                   </div>
                 )}
 
-                <div className="flex justify-between text-[10px] text-neutral-500 border-t border-neutral-900 pt-1">
+                <div className="flex justify-between text-[10px] border-t border-neutral-900 pt-1">
                   <span>Distance: {alloc.distance_km} km</span>
                   <span>Est. Transit: ~{alloc.transit_hours} hrs</span>
                 </div>
@@ -418,23 +388,21 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({
       {/* 6. Route Shipping Volume & Capacity Limits */}
       {result.corridor_utilizations.length > 0 && (
         <div className="space-y-2 border-t border-neutral-900 pt-3">
-          <div className="text-xs font-bold uppercase tracking-wider text-neutral-300">
+          <div className="text-xs font-bold uppercase tracking-wider text-white">
             Route Shipping Volume & Limits
           </div>
           <div className="space-y-2 text-[11px]">
             {result.corridor_utilizations.map((c) => (
               <div key={c.corridor_name} className="space-y-1">
-                <div className="flex justify-between text-neutral-400 text-[10px]">
+                <div className="flex justify-between text-[10px]">
                   <span>{c.corridor_name}</span>
-                  <span className="text-white font-bold">
+                  <span className="font-bold">
                     {c.flow_units} / {c.capacity_units} units ({c.utilization_pct}%)
                   </span>
                 </div>
-                <div className="w-full bg-neutral-900 rounded-full h-1.5 overflow-hidden">
+                <div className="w-full bg-neutral-900 h-1.5 overflow-hidden rounded-none">
                   <div
-                    className={`h-full rounded-full ${
-                      c.modality === 1 ? 'bg-sky-400' : 'bg-amber-400'
-                    }`}
+                    className="h-full bg-white rounded-none"
                     style={{ width: `${Math.min(c.utilization_pct, 100)}%` }}
                   />
                 </div>
@@ -446,14 +414,14 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({
 
       {/* 7. Actionable Audit Tokens */}
       <div className="space-y-2 border-t border-neutral-900 pt-3">
-        <div className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+        <div className="text-xs font-bold uppercase tracking-wider text-white">
           Flow Audit Tokens
         </div>
         <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
           {result.tokens.map((token, i) => (
             <div
               key={`token-${i}`}
-              className="text-[11px] leading-relaxed p-2 rounded bg-neutral-950 border border-neutral-900 text-neutral-300"
+              className="text-[11px] leading-relaxed p-2 bg-black text-white rounded-none"
             >
               {token}
             </div>

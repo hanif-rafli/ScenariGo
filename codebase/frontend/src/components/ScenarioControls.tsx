@@ -1,5 +1,4 @@
 import React, { useRef } from 'react';
-import { Play, RotateCcw, AlertTriangle, Upload } from 'lucide-react';
 import { SimulationRequest } from '../types/simulation';
 import { parseWarehousesCSV, parseStoresCSV } from '../services/csvParser';
 
@@ -56,13 +55,13 @@ export const ScenarioControls: React.FC<ScenarioControlsProps> = ({
   };
 
   return (
-    <div className="bg-black border border-neutral-800 rounded-lg p-5 shadow-2xl space-y-4">
+    <div className="bg-neutral-950 p-5 space-y-4 rounded-none font-mono">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-800 pb-3">
         <div>
-          <h2 className="text-xs font-bold text-white uppercase tracking-widest font-mono">
+          <h2 className="text-xs font-bold text-white uppercase tracking-widest">
             Scenario Control & Presets
           </h2>
-          <p className="text-xs font-mono text-neutral-400 mt-0.5">
+          <p className="text-xs text-white mt-0.5">
             Select industrial test scenario or ingest local CSV files
           </p>
         </div>
@@ -72,9 +71,8 @@ export const ScenarioControls: React.FC<ScenarioControlsProps> = ({
           <button
             onClick={onRunFeasibility}
             disabled={loading}
-            className="flex items-center space-x-2 px-4 py-2 bg-white hover:bg-neutral-200 disabled:bg-neutral-800 text-black disabled:text-neutral-500 rounded text-xs font-bold font-mono tracking-wider uppercase transition-colors"
+            className="px-4 py-2 bg-white hover:bg-neutral-200 disabled:bg-neutral-800 text-black disabled:text-neutral-500 rounded-none text-xs font-bold tracking-wider uppercase transition-colors cursor-pointer"
           >
-            <Play className="w-3.5 h-3.5 fill-current" />
             <span>{loading ? 'Evaluating...' : 'Run Feasibility Engine'}</span>
           </button>
         </div>
@@ -84,45 +82,35 @@ export const ScenarioControls: React.FC<ScenarioControlsProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <button
           onClick={() => onSelectPreset('bob')}
-          className="flex items-start space-x-3 p-3 bg-neutral-950 hover:bg-neutral-900 border border-neutral-800 hover:border-white rounded text-left transition-all"
+          className="p-3 bg-black hover:bg-neutral-900 border border-neutral-800 hover:border-white rounded-none text-left transition-all cursor-pointer"
         >
-          <div className="p-2 bg-neutral-900 border border-neutral-700 rounded text-white">
-            <RotateCcw className="w-4 h-4" />
+          <div className="text-xs font-bold text-white uppercase tracking-wide">
+            Preset 1: Bob's Stationery Baseline
           </div>
-          <div>
-            <div className="text-xs font-mono font-bold text-white uppercase tracking-wide">
-              Preset 1: Bob's Stationery Baseline
-            </div>
-            <div className="text-[11px] font-mono text-neutral-400 mt-0.5">
-              Balanced supply across KL, Penang & Kuching (P0, P1, P2). Expected: FEASIBLE.
-            </div>
+          <div className="text-[11px] text-white mt-1">
+            Balanced supply across KL, Penang & Kuching (P0, P1, P2). Expected: FEASIBLE.
           </div>
         </button>
 
         <button
           onClick={() => onSelectPreset('deficit')}
-          className="flex items-start space-x-3 p-3 bg-neutral-950 hover:bg-neutral-900 border border-neutral-800 hover:border-white rounded text-left transition-all"
+          className="p-3 bg-black hover:bg-neutral-900 border border-neutral-800 hover:border-white rounded-none text-left transition-all cursor-pointer"
         >
-          <div className="p-2 bg-neutral-900 border border-neutral-700 rounded text-white">
-            <AlertTriangle className="w-4 h-4" />
+          <div className="text-xs font-bold text-white uppercase tracking-wide">
+            Preset 2: East Malaysia Stockout
           </div>
-          <div>
-            <div className="text-xs font-mono font-bold text-white uppercase tracking-wide">
-              Preset 2: East Malaysia Stockout
-            </div>
-            <div className="text-[11px] font-mono text-neutral-400 mt-0.5">
-              Kuching store demand for P1 exceeds aggregate supply. Expected: EARLY CUTOFF.
-            </div>
+          <div className="text-[11px] text-white mt-1">
+            Kuching store demand for P1 exceeds aggregate supply. Expected: EARLY CUTOFF.
           </div>
         </button>
       </div>
 
       {/* Scenario Metadata & CSV Ingestion */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs font-mono text-neutral-400 border-t border-neutral-800">
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs text-white border-t border-neutral-800">
         <div className="flex items-center space-x-5">
-          <span>Warehouses: <strong className="text-white font-bold">{currentScenario.warehouses.length}</strong></span>
-          <span>Stores: <strong className="text-white font-bold">{currentScenario.stores.length}</strong></span>
-          <span>Budget Cap: <strong className="text-white font-bold">MYR {currentScenario.budget_cap_myr?.toLocaleString() ?? '7,000'}</strong></span>
+          <span>Warehouses: <strong className="font-bold">{currentScenario.warehouses.length}</strong></span>
+          <span>Stores: <strong className="font-bold">{currentScenario.stores.length}</strong></span>
+          <span>Budget Cap: <strong className="font-bold">MYR {currentScenario.budget_cap_myr?.toLocaleString() ?? '7,000'}</strong></span>
         </div>
 
         {/* CSV Ingestion Buttons */}
@@ -136,10 +124,9 @@ export const ScenarioControls: React.FC<ScenarioControlsProps> = ({
           />
           <button
             onClick={() => warehouseFileRef.current?.click()}
-            className="flex items-center space-x-1.5 px-3 py-1 bg-black hover:bg-neutral-900 border border-neutral-700 hover:border-white rounded text-[11px] font-mono text-neutral-300 hover:text-white transition-colors"
+            className="px-3 py-1 bg-black hover:bg-neutral-900 border border-neutral-700 hover:border-white rounded-none text-[11px] text-white transition-colors cursor-pointer"
           >
-            <Upload className="w-3 h-3" />
-            <span>Upload Warehouses CSV</span>
+            Upload Warehouses CSV
           </button>
 
           <input
@@ -151,10 +138,9 @@ export const ScenarioControls: React.FC<ScenarioControlsProps> = ({
           />
           <button
             onClick={() => storeFileRef.current?.click()}
-            className="flex items-center space-x-1.5 px-3 py-1 bg-black hover:bg-neutral-900 border border-neutral-700 hover:border-white rounded text-[11px] font-mono text-neutral-300 hover:text-white transition-colors"
+            className="px-3 py-1 bg-black hover:bg-neutral-900 border border-neutral-700 hover:border-white rounded-none text-[11px] text-white transition-colors cursor-pointer"
           >
-            <Upload className="w-3 h-3" />
-            <span>Upload Stores CSV</span>
+            Upload Stores CSV
           </button>
         </div>
       </div>

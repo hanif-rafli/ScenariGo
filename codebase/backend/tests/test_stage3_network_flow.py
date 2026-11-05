@@ -36,6 +36,11 @@ def test_baseline_circulation_feasible(baseline_scenario: SimulationRequest):
     assert p0_shah_alam.route_type == RouteType.DIRECT_HIGHWAY
 
     assert "[VERIFIED: FLOW OPTIMAL]" in result.summary
+    assert result.graph_trace is not None
+    assert result.graph_trace.graph_type == "CIRCULATION_DEMANDS"
+    assert len(result.graph_trace.nodes) > 0
+    assert len(result.graph_trace.steps) > 1
+    assert result.graph_trace.steps[0].step_index == 0
 
 
 def test_deficit_circulation_infeasible():

@@ -9,6 +9,12 @@ from collections import deque, defaultdict
 from typing import Any
 from app.models.entities import Warehouse, Store
 from app.models.graph import Modality
+from app.models.graph_trace import (
+    GraphNode,
+    GraphEdgeSnapshot,
+    GraphIterationStep,
+    NetworkFlowGraphTrace,
+)
 from app.models.flow import (
     AllocationStatus,
     RouteType,
@@ -121,6 +127,97 @@ class ResidualNetwork:
                     edge.rev.flow -= bottleneck
 
         return total_flow
+
+    def edmonds_karp_with_trace(
+        self,
+        source: int,
+        sink: int,
+        id_to_key: dict[int, str],
+        nodes_dict: dict[str, GraphNode],
+        tracked_edges: list[tuple[FlowEdge, dict[str, Any]]],
+    ) -> tuple[int, NetworkFlowGraphTrace]:
+        """Executes Edmonds-Karp maximum flow algorithm and records step-by-step trace."""
+        def make_snapshot(active_path_edges: set[str]) -> list[GraphEdgeSnapshot]:
+            snapshots: list[GraphEdgeSnapshot] = []
+            for edge, meta in tracked_edges:
+                u_key = id_to_key[edge.u]
+                v_key = id_to_key[edge.v]
+                e_id = f"{u_key}->{v_key}"
+                snapshots.append(
+                    GraphEdgeSnapshot(
+                        edge_id=e_id,
+                        source=u_key,
+                        target=v_key,
+                        flow=edge.flow + edge.lower_bound,
+                        capacity=edge.capacity,
+                        lower_bound=edge.lower_bound,
+                        residual_forward=edge.residual_capacity,
+                        residual_backward=edge.rev.residual_capacity if edge.rev else 0,
+                        in_augmenting_path=e_id in active_path_edges,
+                        edge_type=meta.get("type", "STANDARD"),
+                    )
+                )
+            return snapshots
+
+        steps: list[GraphIterationStep] = []
+        total_flow = 0
+
+        # Step 0: Initial network state
+        steps.append(
+            GraphIterationStep(
+                step_index=0,
+                label="STEP 0: INITIAL CIRCULATION SETUP",
+                description="Circulation network initialized with node balance demands d(v) = Inflow(LB) - Outflow(LB) and infinite return edge (T -> S).",
+                bottleneck_flow=0,
+                cumulative_flow=0,
+                cumulative_cost_myr=0.0,
+                augmenting_path_nodes=[],
+                augmenting_path_edges=[],
+                edges=make_snapshot(set()),
+            )
+        )
+
+        step_idx = 1
+        while True:
+            bottleneck, path = self.bfs_find_path(source, sink)
+            if bottleneck <= 0:
+                break
+
+            total_flow += bottleneck
+            for edge in path:
+                edge.residual_capacity -= bottleneck
+                edge.flow += bottleneck
+                if edge.rev:
+                    edge.rev.residual_capacity += bottleneck
+                    edge.rev.flow -= bottleneck
+
+            # path is from sink to source, reverse to source -> sink
+            fwd_path = list(reversed(path))
+            path_nodes = [id_to_key[fwd_path[0].u]] + [id_to_key[e.v] for e in fwd_path]
+            path_edges = [f"{id_to_key[e.u]}->{id_to_key[e.v]}" for e in fwd_path]
+            path_labels = [nodes_dict[k].short_label for k in path_nodes if k in nodes_dict]
+
+            steps.append(
+                GraphIterationStep(
+                    step_index=step_idx,
+                    label=f"STEP {step_idx}: AUGMENT +{bottleneck} UNITS",
+                    description=f"Augmenting path found: {' -> '.join(path_labels)}. Bottleneck capacity: {bottleneck} units. Cumulative circulation flow: {total_flow} units.",
+                    bottleneck_flow=bottleneck,
+                    cumulative_flow=total_flow,
+                    cumulative_cost_myr=0.0,
+                    augmenting_path_nodes=path_nodes,
+                    augmenting_path_edges=path_edges,
+                    edges=make_snapshot(set(path_edges)),
+                )
+            )
+            step_idx += 1
+
+        trace = NetworkFlowGraphTrace(
+            graph_type="CIRCULATION_DEMANDS",
+            nodes=list(nodes_dict.values()),
+            steps=steps,
+        )
+        return total_flow, trace
 
 
 def solve_network_flow(
@@ -313,13 +410,143 @@ def solve_network_flow(
     target_lower_bound_flow = 0
     for node_id, demand in node_demands.items():
         if demand > 0:
-            graph.add_edge(S_STAR, node_id, capacity=demand, lower_bound=0)
+            e = graph.add_edge(S_STAR, node_id, capacity=demand, lower_bound=0, meta={"type": "SUPER_SOURCE_BALANCE"})
+            tracked_edges.append((e, {"type": "SUPER_SOURCE_BALANCE"}))
             target_lower_bound_flow += demand
         elif demand < 0:
-            graph.add_edge(node_id, T_STAR, capacity=-demand, lower_bound=0)
+            e = graph.add_edge(node_id, T_STAR, capacity=-demand, lower_bound=0, meta={"type": "SUPER_SINK_BALANCE"})
+            tracked_edges.append((e, {"type": "SUPER_SINK_BALANCE"}))
+
+    # Build complete node metadata dictionary for graph visualization
+    nodes_dict: dict[str, GraphNode] = {
+        "SUPER_SOURCE_STAR": GraphNode(
+            node_id="SUPER_SOURCE_STAR",
+            short_label="S*",
+            layer=0,
+            node_type="SUPER_SOURCE",
+            title="Circulation Super-Source S*",
+            metadata={"role": "Injects lower-bound demand offsets d(v) > 0 into the circulation network."},
+        ),
+        "ORIG_SOURCE": GraphNode(
+            node_id="ORIG_SOURCE",
+            short_label="S",
+            layer=1,
+            node_type="SOURCE",
+            title="Original Network Supply Source",
+            metadata={"role": "Supplies available inventory to regional distribution warehouses."},
+        ),
+    }
+
+    # Warehouses & Warehouse Products
+    for w in warehouses:
+        w_key = f"WH_{w.warehouse_id}"
+        nodes_dict[w_key] = GraphNode(
+            node_id=w_key,
+            short_label=f"W{w.warehouse_id}",
+            layer=2,
+            node_type="WAREHOUSE",
+            title=f"Warehouse W{w.warehouse_id}: {w.name}",
+            metadata={
+                "name": w.name,
+                "is_port": w.is_port,
+                "total_stock": sum(w.inventory.values()),
+                "inventory": w.inventory,
+            },
+        )
+        for pid, qty in w.inventory.items():
+            wp_key = f"WH_{w.warehouse_id}_PROD_{pid}"
+            nodes_dict[wp_key] = GraphNode(
+                node_id=wp_key,
+                short_label=f"(W{w.warehouse_id},P{pid})",
+                layer=3,
+                node_type="WH_PRODUCT",
+                title=f"Warehouse W{w.warehouse_id} Stock: P{pid}",
+                metadata={
+                    "warehouse": w.name,
+                    "product_id": pid,
+                    "available_units": qty,
+                },
+            )
+
+    # Port Gateways
+    for dep_port in warehouses:
+        if dep_port.is_port:
+            for pid in ["0", "1", "2"]:
+                dep_key = f"PORT_DEP_{dep_port.warehouse_id}_PROD_{pid}"
+                arr_key = f"PORT_ARR_{dep_port.warehouse_id}_PROD_{pid}"
+                if any(u == dep_key or v == dep_key for u, v, _, _, _ in raw_edges):
+                    nodes_dict[dep_key] = GraphNode(
+                        node_id=dep_key,
+                        short_label=f"(Dep-W{dep_port.warehouse_id},P{pid})",
+                        layer=4,
+                        node_type="PORT_GATEWAY",
+                        title=f"Port Departure Berth: {dep_port.name} (P{pid})",
+                        metadata={"port_name": dep_port.name, "product_id": pid, "berth": "DEPARTURE"},
+                    )
+                if any(u == arr_key or v == arr_key for u, v, _, _, _ in raw_edges):
+                    nodes_dict[arr_key] = GraphNode(
+                        node_id=arr_key,
+                        short_label=f"(Arr-W{dep_port.warehouse_id},P{pid})",
+                        layer=4,
+                        node_type="PORT_GATEWAY",
+                        title=f"Port Arrival Berth: {dep_port.name} (P{pid})",
+                        metadata={"port_name": dep_port.name, "product_id": pid, "berth": "ARRIVAL"},
+                    )
+
+    # Store Products & Stores
+    for s in stores:
+        for pid, req in s.requests.items():
+            sp_key = f"STORE_{s.store_id}_PROD_{pid}"
+            nodes_dict[sp_key] = GraphNode(
+                node_id=sp_key,
+                short_label=f"(S{s.store_id},P{pid})",
+                layer=5,
+                node_type="STORE_PRODUCT",
+                title=f"Store S{s.store_id} Request: P{pid}",
+                metadata={
+                    "store": s.name,
+                    "product_id": pid,
+                    "demand_units": req,
+                },
+            )
+        s_key = f"STORE_{s.store_id}"
+        nodes_dict[s_key] = GraphNode(
+            node_id=s_key,
+            short_label=f"S{s.store_id}",
+            layer=6,
+            node_type="STORE",
+            title=f"Store S{s.store_id}: {s.name}",
+            metadata={
+                "name": s.name,
+                "total_demand": sum(s.requests.values()),
+                "requests": s.requests,
+            },
+        )
+
+    # Sink & Super-Sink
+    nodes_dict["ORIG_SINK"] = GraphNode(
+        node_id="ORIG_SINK",
+        short_label="T",
+        layer=7,
+        node_type="SINK",
+        title="Original Demand Sink T",
+        metadata={"role": "Collects satisfied retail store demands."},
+    )
+    nodes_dict["SUPER_SINK_STAR"] = GraphNode(
+        node_id="SUPER_SINK_STAR",
+        short_label="T*",
+        layer=8,
+        node_type="SUPER_SINK",
+        title="Circulation Super-Sink T*",
+        metadata={"role": "Absorbs negative demand deficits d(v) < 0 to balance circulation."},
+    )
+
+    id_to_key = {v: k for k, v in node_indexer.items()}
 
     # 4. Execute Edmonds-Karp on the transformed circulation network
-    max_flow = graph.edmonds_karp(S_STAR, T_STAR)
+    max_flow, graph_trace = graph.edmonds_karp_with_trace(
+        S_STAR, T_STAR, id_to_key, nodes_dict, tracked_edges
+    )
     is_feasible = max_flow == target_lower_bound_flow
 
     # 5. Extract Allocations and Reconstruct True Flows f(e) = f_res(e) + L(e)
@@ -557,4 +784,5 @@ def solve_network_flow(
         bottleneck_details=bottleneck_details,
         tokens=tokens,
         summary=summary,
+        graph_trace=graph_trace,
     )
