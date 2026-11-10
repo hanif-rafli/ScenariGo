@@ -1,6 +1,10 @@
 from fastapi import APIRouter
 from app.models.responses import SimulationRequest
-from app.data.presets import get_bobs_stationery_preset, get_deficit_preset
+from app.data.presets import (
+    get_bobs_stationery_preset,
+    get_deficit_preset,
+    get_air_freight_preset,
+)
 
 router = APIRouter()
 
@@ -23,3 +27,13 @@ def get_baseline_scenario() -> SimulationRequest:
 )
 def get_deficit_scenario() -> SimulationRequest:
     return get_deficit_preset()
+
+
+@router.get(
+    "/air-freight",
+    response_model=SimulationRequest,
+    summary="Expedited Air Freight Transshipment Scenario",
+    description="Loads the expedited air cargo scenario connecting KLIA Cargo Hub to Kuching Air Cargo Hub.",
+)
+def get_air_freight_scenario() -> SimulationRequest:
+    return get_air_freight_preset()

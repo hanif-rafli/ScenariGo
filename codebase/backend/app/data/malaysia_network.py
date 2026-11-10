@@ -364,6 +364,23 @@ MARITIME_PORT_KLANG_TO_KUCHING_WAYPOINTS: list[tuple[float, float]] = [
 ]
 
 
+# ==============================================================================
+# 3. AIR FREIGHT FLIGHT CORRIDORS (High-Altitude Great-Circle Trajectories)
+# Direct aerial corridors between Peninsular and Borneo air hubs across South China Sea.
+# ==============================================================================
+
+AIR_KLIA_TO_KUCHING_WAYPOINTS: list[tuple[float, float]] = [
+    (2.7456, 101.7072),
+    (2.8120, 102.6500),
+    (2.7800, 104.1000),
+    (2.6100, 105.8000),
+    (2.3400, 107.5000),
+    (1.9800, 109.1000),
+    (1.6800, 110.0500),
+    (1.4847, 110.3472),
+]
+
+
 # In-memory route cache for custom points
 _ROAD_CACHE: dict[str, list[tuple[float, float]]] = {}
 
