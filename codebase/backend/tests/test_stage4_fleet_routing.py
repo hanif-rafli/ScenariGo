@@ -79,3 +79,38 @@ def test_fleet_api_endpoints(client: TestClient, baseline_scenario: SimulationRe
     assert route_data["is_budget_feasible"] is True
     assert route_data["dispatched_trucks_count"] > 0
     assert len(route_data["itineraries"]) > 0
+
+
+def test_deadhead_repositioning_highway_waypoints(baseline_scenario: SimulationRequest):
+    """Verifies that truck repositioning deadhead legs follow actual highway geometry with no direct chords."""
+    flow_res = solve_network_flow(
+        warehouses=baseline_scenario.warehouses,
+        stores=baseline_scenario.stores,
+    )
+    stage4_res = solve_fleet_routing(
+        allocations=flow_res.allocations,
+        warehouses=baseline_scenario.warehouses,
+        stores=baseline_scenario.stores,
+        budget_cap_myr=7000.0,
+        economic_parameters=baseline_scenario.fleet.economic_parameters,
+    )
+
+    trk3_itin = next((i for i in stage4_res.itineraries if i.truck_id == "TRK-003"), None)
+    assert trk3_itin is not None
+
+    deadhead_leg = next((l for l in trk3_itin.legs if l.leg_type == "DEADHEAD_PICKUP"), None)
+    assert deadhead_leg is not None
+    # Must follow actual E1 highway with numerous waypoints (not a 2-point direct chord)
+    assert len(deadhead_leg.path_coordinates) > 100
+    assert deadhead_leg.distance_km > 300.0
+    # First point must snap to Penang depot, last point to KL hub
+    assert deadhead_leg.path_coordinates[0] == (5.4164, 100.3327)
+    assert deadhead_leg.path_coordinates[-1] == (3.1390, 101.6869)
+
+    # TRK-004 handles transshipped last-mile cargo in Kuching; must follow road geometry (10 waypoints, 5.9km)
+    trk4_itin = next((i for i in stage4_res.itineraries if i.truck_id == "TRK-004"), None)
+    assert trk4_itin is not None
+    haul_leg_trk4 = next((l for l in trk4_itin.legs if l.leg_type == "HAUL_DELIVERY"), None)
+    assert haul_leg_trk4 is not None
+    assert len(haul_leg_trk4.path_coordinates) == 10
+    assert haul_leg_trk4.distance_km == 5.9

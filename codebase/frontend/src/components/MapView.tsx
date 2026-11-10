@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Warehouse, Store, NetworkEdge } from '../types/simulation';
+import { Warehouse, Store, NetworkEdge, DispatchItinerary, TruckInstance } from '../types/simulation';
 import { Building2, Store as StoreIcon, Anchor, Plane } from 'lucide-react';
 import { renderToString } from 'react-dom/server';
+import { AnimatedTruckMarker } from './AnimatedTruckMarker';
 
 interface MapViewProps {
   warehouses: Warehouse[];
   stores: Store[];
   edges?: NetworkEdge[];
+  itineraries?: DispatchItinerary[];
+  trucks?: TruckInstance[];
   highlightedPath?: [number, number][];
   highlightLabel?: string;
   panTarget?: [number, number] | null;
@@ -80,6 +83,8 @@ export const MapView: React.FC<MapViewProps> = ({
   warehouses,
   stores,
   edges = [],
+  itineraries = [],
+  trucks = [],
   highlightedPath,
   highlightLabel,
   panTarget,
@@ -88,6 +93,62 @@ export const MapView: React.FC<MapViewProps> = ({
 }) => {
   const defaultCenter: [number, number] = [3.8, 108.5];
   const defaultZoom = 6;
+
+  // Map active itineraries by truck ID
+  const itineraryByTruck = useMemo(() => {
+    const map = new Map<string, DispatchItinerary>();
+    for (const itin of itineraries) {
+      map.set(itin.truck_id, itin);
+    }
+    return map;
+  }, [itineraries]);
+
+  // Compute displayed trucks (fallback to itinerary records if trucks list is empty)
+  const displayedTrucks = useMemo(() => {
+    if (trucks && trucks.length > 0) {
+      return trucks;
+    }
+    if (itineraries && itineraries.length > 0) {
+      return itineraries.map((itin) => ({
+        truck_id: itin.truck_id,
+        name: itin.truck_name,
+        model_id: 'standard_lorry',
+        image_url: itin.truck_image,
+        payload_capacity_kg: 3500,
+        fuel_economy_kmpl: 8.5,
+        fuel_tank_capacity_l: 100,
+        current_location_name: itin.source_warehouse_name,
+        current_coords: (itin.legs[0]?.origin_coords || [3.139, 101.6869]) as [number, number],
+        is_assigned: true,
+      }));
+    }
+    return [];
+  }, [trucks, itineraries]);
+
+  // Group trucks sharing the same route corridor to calculate headway stagger & lateral offset
+  const corridorGroupInfo = useMemo(() => {
+    const groupMap = new Map<string, string[]>(); // corridorKey -> [truck_id, ...]
+
+    for (const truck of displayedTrucks) {
+      const itin = itineraryByTruck.get(truck.truck_id);
+      if (itin) {
+        const key = `${itin.source_warehouse_id}->${itin.target_store_id}`;
+        if (!groupMap.has(key)) {
+          groupMap.set(key, []);
+        }
+        groupMap.get(key)!.push(truck.truck_id);
+      }
+    }
+
+    const truckSpacingInfo = new Map<string, { coRoutedIndex: number; totalCoRouted: number }>();
+    for (const [, truckIds] of groupMap.entries()) {
+      truckIds.forEach((id, idx) => {
+        truckSpacingInfo.set(id, { coRoutedIndex: idx, totalCoRouted: truckIds.length });
+      });
+    }
+
+    return truckSpacingInfo;
+  }, [displayedTrucks, itineraryByTruck]);
 
   return (
     <div className="relative w-full h-[580px] rounded-none overflow-hidden border border-neutral-800 bg-black">
@@ -301,6 +362,24 @@ export const MapView: React.FC<MapViewProps> = ({
             </Popup>
           </Marker>
         ))}
+
+        {/* Animated Commercial Fleet Trucks */}
+        {displayedTrucks.map((truck, overallIdx) => {
+          const spacing = corridorGroupInfo.get(truck.truck_id) || {
+            coRoutedIndex: 0,
+            totalCoRouted: 1,
+          };
+          return (
+            <AnimatedTruckMarker
+              key={`animated-truck-${truck.truck_id}`}
+              truck={truck}
+              truckIndex={overallIdx}
+              coRoutedIndex={spacing.coRoutedIndex}
+              totalCoRouted={spacing.totalCoRouted}
+              itinerary={itineraryByTruck.get(truck.truck_id)}
+            />
+          );
+        })}
       </MapContainer>
 
       {/* Floating Chromatic Map Legend */}
@@ -336,6 +415,14 @@ export const MapView: React.FC<MapViewProps> = ({
         <div className="flex items-center space-x-2">
           <div className="w-3.5 h-3.5 rounded-sm bg-neutral-900 border border-white" />
           <span className="text-white">Store (Demand Node)</span>
+        </div>
+        <div className="h-px bg-neutral-800 my-1" />
+        <div className="flex items-center space-x-2">
+          <div className="flex items-center px-1 py-0.5 bg-black border border-white text-[9px] text-white font-mono font-bold space-x-1">
+            <span>TRK</span>
+            <span className="text-[8px]">&gt;</span>
+          </div>
+          <span className="text-white">Fleet Truck (Dispatched)</span>
         </div>
       </div>
     </div>
