@@ -44,6 +44,14 @@ export async function fetchAirFreightPreset(): Promise<SimulationRequest> {
   return res.json();
 }
 
+export async function fetchTriPortPreset(): Promise<SimulationRequest> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/presets/tri-port`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch tri-port preset: ${res.statusText}`);
+  }
+  return res.json();
+}
+
 export async function evaluateFeasibility(request: SimulationRequest): Promise<Stage1Result> {
   const res = await fetch(`${API_BASE_URL}/api/v1/feasibility`, {
     method: 'POST',

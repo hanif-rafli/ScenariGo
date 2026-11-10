@@ -198,3 +198,122 @@ def get_air_freight_preset() -> SimulationRequest:
         fleet=fleet,
         budget_cap_myr=9500.0,
     )
+
+
+def get_tri_port_preset() -> SimulationRequest:
+    """Preset 4: Tri-Port Multi-Gateway Peninsular Logistics.
+    
+    Models three Peninsular maritime port gateways connecting to East Malaysia:
+    1. North: Butterworth Logistics Depot (Penang Port NBCT, 5.4120, 100.3700)
+    2. Central: Port Klang Gateway (Westports / Northport, 2.9985, 101.3928)
+    3. South: Port of Tanjung Pelepas (PTP Johor, 1.3620, 103.5510)
+    
+    Connected via high-precision E1/E2 North-South Expressway, Federal Route 2,
+    and deepwater maritime shipping fairways to Kuching Transshipment Port (1.5533, 110.3592).
+    """
+    warehouses = [
+        Warehouse(
+            warehouse_id=0,
+            name="Kuala Lumpur Hub",
+            latitude=3.1390,
+            longitude=101.6869,
+            is_port=False,
+            inventory={"0": 40, "1": 30},
+        ),
+        Warehouse(
+            warehouse_id=1,
+            name="Butterworth Logistics Depot",
+            latitude=5.4120,
+            longitude=100.3700,
+            is_port=True,
+            inventory={"0": 20, "2": 40},
+        ),
+        Warehouse(
+            warehouse_id=2,
+            name="Kuching Transshipment Port",
+            latitude=1.5533,
+            longitude=110.3592,
+            is_port=True,
+            inventory={"1": 15},
+        ),
+        Warehouse(
+            warehouse_id=3,
+            name="Port Klang Gateway",
+            latitude=2.9985,
+            longitude=101.3928,
+            is_port=True,
+            inventory={"0": 30, "1": 20},
+        ),
+        Warehouse(
+            warehouse_id=4,
+            name="Port of Tanjung Pelepas (PTP Johor)",
+            latitude=1.3620,
+            longitude=103.5510,
+            is_port=True,
+            inventory={"0": 25, "1": 20, "2": 20},
+        ),
+    ]
+
+    stores = [
+        Store(
+            store_id=0,
+            name="Shah Alam Retail",
+            latitude=3.0738,
+            longitude=101.5183,
+            requests={"0": 25, "1": 10},
+        ),
+        Store(
+            store_id=1,
+            name="Ipoh Supermarket",
+            latitude=4.5975,
+            longitude=101.0901,
+            requests={"0": 15},
+        ),
+        Store(
+            store_id=2,
+            name="Kuching Central Mall",
+            latitude=1.5300,
+            longitude=110.3400,
+            requests={"1": 20, "2": 10},
+        ),
+        Store(
+            store_id=3,
+            name="Johor Bahru Retail",
+            latitude=1.4927,
+            longitude=103.7414,
+            requests={"0": 20, "2": 15},
+        ),
+    ]
+
+    fleet = FleetConfig(
+        truck_models=[
+            TruckModel(
+                model_id="tata_ace",
+                name="Tata Ace Gold",
+                payload_capacity_kg=900,
+                fuel_economy_kmpl=22.0,
+                fuel_tank_capacity_l=26.0,
+            ),
+            TruckModel(
+                model_id="three_ton_lorry",
+                name="Isuzu 3-Ton Box Lorry",
+                payload_capacity_kg=3500,
+                fuel_economy_kmpl=8.5,
+                fuel_tank_capacity_l=100.0,
+            ),
+        ],
+        economic_parameters=EconomicParameters(
+            fuel_price_myr_per_liter=2.05,
+            intermodal_sea_base_fee_myr=450.0,
+            intermodal_sea_per_kg_myr=0.85,
+            default_budget_cap_myr=12000.0,
+        ),
+    )
+
+    return SimulationRequest(
+        scenario_name="Tri-Port Multi-Gateway Peninsular Logistics (Butterworth, Port Klang, PTP Johor)",
+        warehouses=warehouses,
+        stores=stores,
+        fleet=fleet,
+        budget_cap_myr=12000.0,
+    )

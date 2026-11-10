@@ -4,7 +4,7 @@ import { parseWarehousesCSV, parseStoresCSV } from '../services/csvParser';
 
 interface ScenarioControlsProps {
   currentScenario: SimulationRequest;
-  onSelectPreset: (presetType: 'bob' | 'deficit' | 'air') => void;
+  onSelectPreset: (presetType: 'bob' | 'deficit' | 'air' | 'tri-port') => void;
   onRunFeasibility: () => void;
   onCustomScenarioLoaded: (scenario: SimulationRequest) => void;
   loading: boolean;
@@ -79,7 +79,7 @@ export const ScenarioControls: React.FC<ScenarioControlsProps> = ({
       </div>
 
       {/* Preset Buttons Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <button
           onClick={() => onSelectPreset('bob')}
           className="p-3 bg-black hover:bg-neutral-900 border border-neutral-800 hover:border-white rounded-none text-left transition-all cursor-pointer"
@@ -113,6 +113,18 @@ export const ScenarioControls: React.FC<ScenarioControlsProps> = ({
           </div>
           <div className="text-[11px] text-white mt-1">
             KLIA Cargo Hub to Kuching Air Hub across flight corridor. Expected: EXPEDITED AIR.
+          </div>
+        </button>
+
+        <button
+          onClick={() => onSelectPreset('tri-port')}
+          className="p-3 bg-black hover:bg-neutral-900 border border-neutral-800 hover:border-white rounded-none text-left transition-all cursor-pointer"
+        >
+          <div className="text-xs font-bold text-white uppercase tracking-wide">
+            Preset 4: Tri-Port Multi-Gateway
+          </div>
+          <div className="text-[11px] text-white mt-1">
+            Butterworth, Port Klang & PTP Johor to Kuching Port. Expected: MULTI-MODAL FLOW.
           </div>
         </button>
       </div>
