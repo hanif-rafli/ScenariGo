@@ -25,7 +25,11 @@ from app.models.flow import (
     Stage3Result,
 )
 from app.core.stage2_reachability import evaluate_reachability, get_corridor_waypoints
-from app.data.malaysia_network import MARITIME_PENANG_TO_KUCHING_WAYPOINTS, AIR_KLIA_TO_KUCHING_WAYPOINTS
+from app.data.malaysia_network import (
+    haversine_distance_km,
+    MARITIME_PENANG_TO_KUCHING_WAYPOINTS,
+    AIR_KLIA_TO_KUCHING_WAYPOINTS,
+)
 
 
 class FlowEdge:
@@ -331,8 +335,24 @@ def solve_network_flow(
                     ))
                 else:
                     # Cross-island: Intermodal sea transport via port gateways or air freight via airports
-                    dep_port = next((p for p in warehouses if p.is_port and node_to_comp.get(p.warehouse_id) == w_comp), None)
-                    arr_port = next((p for p in warehouses if p.is_port and node_to_comp.get(p.warehouse_id) == s_comp), None)
+                    cand_dep_ports = [p for p in warehouses if p.is_port and node_to_comp.get(p.warehouse_id) == w_comp]
+                    dep_port = (
+                        min(
+                            cand_dep_ports,
+                            key=lambda p: haversine_distance_km(w.latitude, w.longitude, p.latitude, p.longitude),
+                        )
+                        if cand_dep_ports
+                        else None
+                    )
+                    cand_arr_ports = [p for p in warehouses if p.is_port and node_to_comp.get(p.warehouse_id) == s_comp]
+                    arr_port = (
+                        min(
+                            cand_arr_ports,
+                            key=lambda p: haversine_distance_km(s.latitude, s.longitude, p.latitude, p.longitude),
+                        )
+                        if cand_arr_ports
+                        else None
+                    )
                     dep_airport = next((a for a in warehouses if a.is_airport and node_to_comp.get(a.warehouse_id) == w_comp), None)
                     arr_airport = next((a for a in warehouses if a.is_airport and node_to_comp.get(a.warehouse_id) == s_comp), None)
 
@@ -669,6 +689,14 @@ def solve_network_flow(
             dep_port = wh_map[dep_id]
             arr_port = wh_map[arr_id]
 
+            sea_pts, sea_dist, _ = get_corridor_waypoints(
+                dep_port.name,
+                arr_port.name,
+                (dep_port.latitude, dep_port.longitude),
+                (arr_port.latitude, arr_port.longitude),
+            )
+            sea_hours = round(sea_dist / 32.0, 1)
+
             allocations.append(
                 AllocationItem(
                     allocation_id=f"ALLOC-{alloc_id_counter:03d}",
@@ -680,11 +708,11 @@ def solve_network_flow(
                     quantity=actual_flow,
                     modality=Modality.MARITIME,
                     route_type=RouteType.INTERMODAL_TRANSSHIPMENT,
-                    distance_km=1510.4,
-                    transit_hours=47.2,
+                    distance_km=sea_dist,
+                    transit_hours=sea_hours,
                     departure_port_name=dep_port.name,
                     arrival_port_name=arr_port.name,
-                    path_coordinates=MARITIME_PENANG_TO_KUCHING_WAYPOINTS,
+                    path_coordinates=sea_pts,
                     status=AllocationStatus.ALLOCATED,
                 )
             )

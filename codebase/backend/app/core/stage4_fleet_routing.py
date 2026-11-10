@@ -27,7 +27,7 @@ from app.models.fleet import (
     TruckInstance,
     Stage4Result,
 )
-from app.core.stage2_reachability import evaluate_reachability
+from app.core.stage2_reachability import evaluate_reachability, get_corridor_waypoints
 from app.data.malaysia_rr_stations import PLUS_RR_STATIONS, find_nearest_rr_station
 from app.data.malaysia_network import (
     HIGHWAY_PENANG_TO_IPOH_WAYPOINTS,
@@ -55,12 +55,17 @@ def get_default_fleet(warehouses: list[Warehouse]) -> list[TruckInstance]:
     kl_wh = wh_map.get(0)
     penang_wh = wh_map.get(1)
     kuching_wh = wh_map.get(2)
+    klang_wh = wh_map.get(3)
+    ptp_wh = wh_map.get(4)
 
+    kl_name = kl_wh.name if kl_wh else "Kuala Lumpur Hub"
     kl_coords = (kl_wh.latitude, kl_wh.longitude) if kl_wh else (3.1390, 101.6869)
+    penang_name = penang_wh.name if penang_wh else "Penang Logistics Dep"
     penang_coords = (penang_wh.latitude, penang_wh.longitude) if penang_wh else (5.4164, 100.3327)
+    kuching_name = kuching_wh.name if kuching_wh else "Kuching Transshipment"
     kuching_coords = (kuching_wh.latitude, kuching_wh.longitude) if kuching_wh else (1.5533, 110.3592)
 
-    return [
+    fleet = [
         TruckInstance(
             truck_id="TRK-001",
             name="Tata Ace Gold #01",
@@ -69,7 +74,7 @@ def get_default_fleet(warehouses: list[Warehouse]) -> list[TruckInstance]:
             payload_capacity_kg=900.0,
             fuel_economy_kmpl=22.0,
             fuel_tank_capacity_l=26.0,
-            current_location_name="Kuala Lumpur Hub",
+            current_location_name=kl_name,
             current_coords=kl_coords,
         ),
         TruckInstance(
@@ -80,7 +85,7 @@ def get_default_fleet(warehouses: list[Warehouse]) -> list[TruckInstance]:
             payload_capacity_kg=3500.0,
             fuel_economy_kmpl=8.5,
             fuel_tank_capacity_l=100.0,
-            current_location_name="Kuala Lumpur Hub",
+            current_location_name=kl_name,
             current_coords=kl_coords,
         ),
         TruckInstance(
@@ -91,7 +96,7 @@ def get_default_fleet(warehouses: list[Warehouse]) -> list[TruckInstance]:
             payload_capacity_kg=3500.0,
             fuel_economy_kmpl=8.5,
             fuel_tank_capacity_l=100.0,
-            current_location_name="Penang Logistics Dep",
+            current_location_name=penang_name,
             current_coords=penang_coords,
         ),
         TruckInstance(
@@ -102,7 +107,7 @@ def get_default_fleet(warehouses: list[Warehouse]) -> list[TruckInstance]:
             payload_capacity_kg=3500.0,
             fuel_economy_kmpl=8.5,
             fuel_tank_capacity_l=100.0,
-            current_location_name="Kuching Transshipment",
+            current_location_name=kuching_name,
             current_coords=kuching_coords,
         ),
         TruckInstance(
@@ -113,10 +118,42 @@ def get_default_fleet(warehouses: list[Warehouse]) -> list[TruckInstance]:
             payload_capacity_kg=900.0,
             fuel_economy_kmpl=22.0,
             fuel_tank_capacity_l=26.0,
-            current_location_name="Kuching Transshipment",
+            current_location_name=kuching_name,
             current_coords=kuching_coords,
         ),
     ]
+
+    if klang_wh:
+        fleet.append(
+            TruckInstance(
+                truck_id="TRK-006",
+                name="Isuzu 3-Ton Lorry #04",
+                model_id="three_ton_lorry",
+                image_url="/assets/trucks/isuzu_3ton.jpg",
+                payload_capacity_kg=3500.0,
+                fuel_economy_kmpl=8.5,
+                fuel_tank_capacity_l=100.0,
+                current_location_name=klang_wh.name,
+                current_coords=(klang_wh.latitude, klang_wh.longitude),
+            )
+        )
+
+    if ptp_wh:
+        fleet.append(
+            TruckInstance(
+                truck_id="TRK-007",
+                name="Isuzu 3-Ton Lorry #05",
+                model_id="three_ton_lorry",
+                image_url="/assets/trucks/isuzu_3ton.jpg",
+                payload_capacity_kg=3500.0,
+                fuel_economy_kmpl=8.5,
+                fuel_tank_capacity_l=100.0,
+                current_location_name=ptp_wh.name,
+                current_coords=(ptp_wh.latitude, ptp_wh.longitude),
+            )
+        )
+
+    return fleet
 
 
 def hungarian_min_cost_assignment(cost_matrix: list[list[float]]) -> list[tuple[int, int]]:
@@ -198,20 +235,52 @@ def solve_fleet_routing(
                 air_allocations.append(alloc)
             else:
                 maritime_allocations.append(alloc)
+
+            # Resolve arrival facility coordinates and destination store for realistic highway routing
+            arrival_name = alloc.arrival_port_name or (
+                "Arrival Airport" if alloc.modality == Modality.AIR else "Arrival Port"
+            )
+            arrival_wh = next(
+                (
+                    w
+                    for w in warehouses
+                    if w.name.lower() in arrival_name.lower()
+                    or arrival_name.lower() in w.name.lower()
+                ),
+                None,
+            )
+            target_store = st_map.get(alloc.target_id)
+
+            lastmile_pts: list[tuple[float, float]] = []
+            lastmile_dist = 5.9
+            lastmile_hours = 0.2
+
+            if arrival_wh and target_store:
+                c_arr = (arrival_wh.latitude, arrival_wh.longitude)
+                c_store = (target_store.latitude, target_store.longitude)
+                lastmile_pts, lastmile_dist, _ = get_corridor_waypoints(
+                    arrival_wh.name,
+                    target_store.name,
+                    c_arr,
+                    c_store,
+                )
+                lastmile_hours = round(lastmile_dist / 45.0, 1)
+
             # Create a local land delivery task from arrival port or airport to destination store
             land_tasks.append(
                 AllocationItem(
                     allocation_id=f"{alloc.allocation_id}-LASTMILE",
-                    source_id=alloc.source_id,
-                    source_name=alloc.arrival_port_name or ("Arrival Airport" if alloc.modality == Modality.AIR else "Arrival Port"),
+                    source_id=arrival_wh.warehouse_id if arrival_wh else alloc.source_id,
+                    source_name=arrival_name,
                     target_id=alloc.target_id,
                     target_name=alloc.target_name,
                     product_id=alloc.product_id,
                     quantity=alloc.quantity,
                     modality=Modality.LAND,
                     route_type=RouteType.DIRECT_HIGHWAY,
-                    distance_km=18.5,
-                    transit_hours=0.4,
+                    distance_km=lastmile_dist,
+                    transit_hours=lastmile_hours,
+                    path_coordinates=lastmile_pts if len(lastmile_pts) > 0 else None,
                     status=AllocationStatus.ALLOCATED,
                 )
             )
@@ -492,6 +561,12 @@ def solve_fleet_routing(
         # Leg 1: Deadhead to pickup warehouse (if distance > 0)
         if meta["deadhead_dist"] > 0.5:
             deadhead_liters = round(meta["deadhead_dist"] / truck.fuel_economy_kmpl, 2)
+            deadhead_pts, deadhead_km, _ = get_corridor_waypoints(
+                truck.current_location_name,
+                task.source_name,
+                truck.current_coords,
+                meta["pickup_coords"],
+            )
             legs.append(
                 TripLeg(
                     leg_type=TripLegType.DEADHEAD_PICKUP,
@@ -499,15 +574,26 @@ def solve_fleet_routing(
                     origin_coords=truck.current_coords,
                     destination_name=task.source_name,
                     destination_coords=meta["pickup_coords"],
-                    distance_km=meta["deadhead_dist"],
-                    transit_hours=round(meta["deadhead_dist"] / 60.0, 1),
+                    distance_km=deadhead_km if deadhead_km > 0 else meta["deadhead_dist"],
+                    transit_hours=round((deadhead_km if deadhead_km > 0 else meta["deadhead_dist"]) / 60.0, 1),
                     fuel_burned_liters=deadhead_liters,
                     fuel_cost_myr=round(deadhead_liters * economic_parameters.fuel_price_myr_per_liter, 2),
-                    path_coordinates=[truck.current_coords, meta["pickup_coords"]],
+                    path_coordinates=deadhead_pts,
                 )
             )
 
-        # Leg 2: Haul to delivery store (with or without R&R detour)
+        # Leg 2: Haul to delivery store (guaranteeing realistic highway geometry)
+        haul_pts = task.path_coordinates
+        if not haul_pts or len(haul_pts) <= 2:
+            resolved_pts, resolved_dist, _ = get_corridor_waypoints(
+                task.source_name,
+                target_store.name,
+                meta["pickup_coords"],
+                (target_store.latitude, target_store.longitude),
+            )
+            if resolved_pts and len(resolved_pts) > 1:
+                haul_pts = resolved_pts
+
         haul_liters = round(meta["haul_dist"] / truck.fuel_economy_kmpl, 2)
         legs.append(
             TripLeg(
@@ -520,7 +606,7 @@ def solve_fleet_routing(
                 transit_hours=round(meta["haul_dist"] / 65.0, 1),
                 fuel_burned_liters=haul_liters,
                 fuel_cost_myr=round(haul_liters * economic_parameters.fuel_price_myr_per_liter, 2),
-                path_coordinates=task.path_coordinates if task.path_coordinates else [meta["pickup_coords"], (target_store.latitude, target_store.longitude)],
+                path_coordinates=haul_pts if haul_pts else [meta["pickup_coords"], (target_store.latitude, target_store.longitude)],
             )
         )
 

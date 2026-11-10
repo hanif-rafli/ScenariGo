@@ -4,6 +4,7 @@ from app.data.presets import (
     get_bobs_stationery_preset,
     get_deficit_preset,
     get_air_freight_preset,
+    get_tri_port_preset,
 )
 
 router = APIRouter()
@@ -37,3 +38,13 @@ def get_deficit_scenario() -> SimulationRequest:
 )
 def get_air_freight_scenario() -> SimulationRequest:
     return get_air_freight_preset()
+
+
+@router.get(
+    "/tri-port",
+    response_model=SimulationRequest,
+    summary="Tri-Port Multi-Gateway Peninsular Logistics Scenario",
+    description="Loads the tri-port scenario with Butterworth, Port Klang, and PTP Johor connecting to East Malaysia.",
+)
+def get_tri_port_scenario() -> SimulationRequest:
+    return get_tri_port_preset()

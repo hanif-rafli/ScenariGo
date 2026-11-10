@@ -22,6 +22,7 @@ import {
   fetchBobStationeryPreset,
   fetchDeficitPreset,
   fetchAirFreightPreset,
+  fetchTriPortPreset,
   evaluateFeasibility,
   evaluateReachability,
   evaluateNetworkFlow,
@@ -219,7 +220,7 @@ export function App() {
     init();
   }, [runEvaluation]);
 
-  const handleSelectPreset = async (presetType: 'bob' | 'deficit' | 'air') => {
+  const handleSelectPreset = async (presetType: 'bob' | 'deficit' | 'air' | 'tri-port') => {
     setLoading(true);
     try {
       let targetScenario: SimulationRequest;
@@ -228,8 +229,10 @@ export function App() {
           targetScenario = await fetchBobStationeryPreset();
         } else if (presetType === 'deficit') {
           targetScenario = await fetchDeficitPreset();
-        } else {
+        } else if (presetType === 'air') {
           targetScenario = await fetchAirFreightPreset();
+        } else {
+          targetScenario = await fetchTriPortPreset();
         }
       } else {
         targetScenario = JSON.parse(JSON.stringify(FALLBACK_BASELINE));
@@ -249,6 +252,81 @@ export function App() {
           targetScenario.warehouses[2].is_airport = true;
           targetScenario.warehouses[2].is_port = false;
           targetScenario.budget_cap_myr = 9500;
+        } else if (presetType === 'tri-port') {
+          targetScenario.scenario_name = 'Tri-Port Multi-Gateway Peninsular Logistics (Offline)';
+          targetScenario.warehouses = [
+            {
+              warehouse_id: 0,
+              name: 'Kuala Lumpur Hub',
+              latitude: 3.139,
+              longitude: 101.6869,
+              is_port: false,
+              inventory: { '0': 40, '1': 30 },
+            },
+            {
+              warehouse_id: 1,
+              name: 'Butterworth Logistics Depot',
+              latitude: 5.412,
+              longitude: 100.37,
+              is_port: true,
+              inventory: { '0': 20, '2': 40 },
+            },
+            {
+              warehouse_id: 2,
+              name: 'Kuching Transshipment Port',
+              latitude: 1.5533,
+              longitude: 110.3592,
+              is_port: true,
+              inventory: { '1': 15 },
+            },
+            {
+              warehouse_id: 3,
+              name: 'Port Klang Gateway',
+              latitude: 2.9985,
+              longitude: 101.3928,
+              is_port: true,
+              inventory: { '0': 30, '1': 20 },
+            },
+            {
+              warehouse_id: 4,
+              name: 'Port of Tanjung Pelepas (PTP Johor)',
+              latitude: 1.362,
+              longitude: 103.551,
+              is_port: true,
+              inventory: { '0': 25, '1': 20, '2': 20 },
+            },
+          ];
+          targetScenario.stores = [
+            {
+              store_id: 0,
+              name: 'Shah Alam Retail',
+              latitude: 3.0738,
+              longitude: 101.5183,
+              requests: { '0': 25, '1': 10 },
+            },
+            {
+              store_id: 1,
+              name: 'Ipoh Supermarket',
+              latitude: 4.5975,
+              longitude: 101.0901,
+              requests: { '0': 15 },
+            },
+            {
+              store_id: 2,
+              name: 'Kuching Central Mall',
+              latitude: 1.53,
+              longitude: 110.34,
+              requests: { '1': 20, '2': 10 },
+            },
+            {
+              store_id: 3,
+              name: 'Johor Bahru Retail',
+              latitude: 1.4927,
+              longitude: 103.7414,
+              requests: { '0': 20, '2': 15 },
+            },
+          ];
+          targetScenario.budget_cap_myr = 12000;
         }
       }
 
@@ -312,6 +390,8 @@ export function App() {
                   warehouses={scenario.warehouses}
                   stores={scenario.stores}
                   edges={reachabilityResult?.edges ?? []}
+                  itineraries={stage4Result?.itineraries ?? []}
+                  trucks={fleet.length > 0 ? fleet : (stage4Result?.available_trucks ?? [])}
                   highlightedPath={selectedAllocation?.path_coordinates}
                   highlightLabel={
                     selectedAllocation
