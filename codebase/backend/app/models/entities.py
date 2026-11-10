@@ -18,6 +18,7 @@ class Warehouse(BaseModel):
     latitude: float
     longitude: float
     is_port: bool = False
+    is_airport: bool = False
     inventory: dict[str, int] = Field(
         default_factory=dict,
         description="Dictionary mapping product_id (as str) to available quantity",
@@ -79,6 +80,8 @@ class EconomicParameters(BaseModel):
     fuel_price_myr_per_liter: float = Field(default=2.05, gt=0)
     intermodal_sea_base_fee_myr: float = Field(default=450.0, ge=0)
     intermodal_sea_per_kg_myr: float = Field(default=0.85, ge=0)
+    intermodal_air_base_fee_myr: float = Field(default=1200.0, ge=0)
+    intermodal_air_per_kg_myr: float = Field(default=4.50, ge=0)
     default_budget_cap_myr: float = Field(default=7000.0, gt=0)
 
 

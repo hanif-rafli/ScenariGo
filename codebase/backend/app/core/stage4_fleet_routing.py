@@ -186,6 +186,7 @@ def solve_fleet_routing(
     # Direct Highway flows and Intermodal Last-Mile flows
     land_tasks: list[AllocationItem] = []
     maritime_allocations: list[AllocationItem] = []
+    air_allocations: list[AllocationItem] = []
 
     for alloc in allocations:
         if alloc.status != AllocationStatus.ALLOCATED or alloc.quantity <= 0:
@@ -193,13 +194,16 @@ def solve_fleet_routing(
         if alloc.route_type == RouteType.DIRECT_HIGHWAY:
             land_tasks.append(alloc)
         elif alloc.route_type == RouteType.INTERMODAL_TRANSSHIPMENT:
-            maritime_allocations.append(alloc)
-            # Create a local land delivery task from arrival port to destination store
+            if alloc.modality == Modality.AIR:
+                air_allocations.append(alloc)
+            else:
+                maritime_allocations.append(alloc)
+            # Create a local land delivery task from arrival port or airport to destination store
             land_tasks.append(
                 AllocationItem(
                     allocation_id=f"{alloc.allocation_id}-LASTMILE",
                     source_id=alloc.source_id,
-                    source_name=alloc.arrival_port_name or "Arrival Port",
+                    source_name=alloc.arrival_port_name or ("Arrival Airport" if alloc.modality == Modality.AIR else "Arrival Port"),
                     target_id=alloc.target_id,
                     target_name=alloc.target_name,
                     product_id=alloc.product_id,
@@ -548,16 +552,23 @@ def solve_fleet_routing(
         )
         total_fleet_fuel_cost += meta["total_fuel_cost"]
 
-    # 4. Calculate Maritime Sea Freight Costs
+    # 4. Calculate Maritime Sea Freight and Air Freight Costs
     total_maritime_cost = 0.0
     for alloc in maritime_allocations:
         weight_kg = alloc.quantity * 20.0
         sea_cost = economic_parameters.intermodal_sea_base_fee_myr + (weight_kg * economic_parameters.intermodal_sea_per_kg_myr)
         total_maritime_cost += sea_cost
 
+    total_air_cost = 0.0
+    for alloc in air_allocations:
+        weight_kg = alloc.quantity * 20.0
+        air_cost = economic_parameters.intermodal_air_base_fee_myr + (weight_kg * economic_parameters.intermodal_air_per_kg_myr)
+        total_air_cost += air_cost
+
     total_maritime_cost = round(total_maritime_cost, 2)
+    total_air_cost = round(total_air_cost, 2)
     total_fleet_fuel_cost = round(total_fleet_fuel_cost, 2)
-    total_transport_cost = round(total_fleet_fuel_cost + total_maritime_cost, 2)
+    total_transport_cost = round(total_fleet_fuel_cost + total_maritime_cost + total_air_cost, 2)
     budget_variance = round(budget_cap_myr - total_transport_cost, 2)
     is_budget_feasible = total_transport_cost <= budget_cap_myr
 
@@ -575,6 +586,12 @@ def solve_fleet_routing(
         tokens.append(
             f"[FAIL: OVERBUDGET] Total transport cost MYR {total_transport_cost:,.2f} "
             f"exceeds budget cap MYR {budget_cap_myr:,.2f} (+MYR {overage:,.2f} overage)."
+        )
+
+    if total_air_cost > 0:
+        tokens.append(
+            f"[AIR FREIGHT AUDIT] Expedited Air Cargo dispatched: MYR {total_air_cost:,.2f} "
+            f"across {len(air_allocations)} transshipment airway bill(s)."
         )
 
     refueled_itins = [itin for itin in itineraries if itin.is_refueled]
@@ -601,6 +618,7 @@ def solve_fleet_routing(
         is_budget_feasible=is_budget_feasible,
         total_fleet_fuel_cost_myr=total_fleet_fuel_cost,
         total_maritime_cost_myr=total_maritime_cost,
+        total_air_cost_myr=total_air_cost,
         total_transport_cost_myr=total_transport_cost,
         budget_cap_myr=budget_cap_myr,
         budget_variance_myr=budget_variance,

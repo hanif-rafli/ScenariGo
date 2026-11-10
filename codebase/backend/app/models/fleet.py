@@ -73,6 +73,7 @@ class Stage4Result(BaseModel):
     is_budget_feasible: bool
     total_fleet_fuel_cost_myr: float
     total_maritime_cost_myr: float
+    total_air_cost_myr: float = 0.0
     total_transport_cost_myr: float
     budget_cap_myr: float
     budget_variance_myr: float  # Positive = surplus/savings, Negative = overage

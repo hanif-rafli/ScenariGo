@@ -15,7 +15,7 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({
   onSelectStore,
 }) => {
   const [selectedProduct, setSelectedProduct] = useState<string>('ALL');
-  const [selectedModality, setSelectedModality] = useState<'ALL' | 'LAND' | 'MARITIME'>('ALL');
+  const [selectedModality, setSelectedModality] = useState<'ALL' | 'LAND' | 'MARITIME' | 'AIR'>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ALLOCATED' | 'SHORTFALL'>('ALL');
 
   if (loading) {
@@ -44,7 +44,8 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({
     const matchMod =
       selectedModality === 'ALL' ||
       (selectedModality === 'LAND' && a.modality === 0) ||
-      (selectedModality === 'MARITIME' && a.modality === 1);
+      (selectedModality === 'MARITIME' && a.modality === 1) ||
+      (selectedModality === 'AIR' && a.modality === 2);
     const matchStatus =
       statusFilter === 'ALL' ||
       (statusFilter === 'ALLOCATED' && a.status === 'ALLOCATED') ||
@@ -264,6 +265,14 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({
             >
               Sea
             </button>
+            <button
+              onClick={() => setSelectedModality('AIR')}
+              className={`px-2 py-0.5 text-[11px] rounded-none cursor-pointer ${
+                selectedModality === 'AIR' ? 'bg-white text-black font-bold' : 'bg-black text-white hover:bg-neutral-900'
+              }`}
+            >
+              Air
+            </button>
           </div>
 
           {shortfallCount > 0 && (
@@ -295,6 +304,7 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({
         <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
           {filteredAllocations.map((alloc) => {
             const isSea = alloc.modality === 1;
+            const isAir = alloc.modality === 2;
             const isShortfall = alloc.status === 'SHORTFALL';
 
             if (isShortfall) {
@@ -340,7 +350,7 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({
                   <div className="flex items-center space-x-2">
                     <span className="font-bold">{alloc.allocation_id}</span>
                     <span className="px-1.5 py-0.5 text-[10px] font-bold border border-neutral-700 rounded-none">
-                      {isSea ? '[SEA FAIRWAY]' : '[HIGHWAY E1]'}
+                      {isAir ? '[AIR CORRIDOR]' : isSea ? '[SEA FAIRWAY]' : '[HIGHWAY E1]'}
                     </span>
                   </div>
                   <div className="flex items-center space-x-1">

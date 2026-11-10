@@ -21,6 +21,7 @@ import {
   checkBackendHealth,
   fetchBobStationeryPreset,
   fetchDeficitPreset,
+  fetchAirFreightPreset,
   evaluateFeasibility,
   evaluateReachability,
   evaluateNetworkFlow,
@@ -218,20 +219,36 @@ export function App() {
     init();
   }, [runEvaluation]);
 
-  const handleSelectPreset = async (presetType: 'bob' | 'deficit') => {
+  const handleSelectPreset = async (presetType: 'bob' | 'deficit' | 'air') => {
     setLoading(true);
     try {
       let targetScenario: SimulationRequest;
       if (backendOnline) {
-        targetScenario =
-          presetType === 'bob'
-            ? await fetchBobStationeryPreset()
-            : await fetchDeficitPreset();
+        if (presetType === 'bob') {
+          targetScenario = await fetchBobStationeryPreset();
+        } else if (presetType === 'deficit') {
+          targetScenario = await fetchDeficitPreset();
+        } else {
+          targetScenario = await fetchAirFreightPreset();
+        }
       } else {
         targetScenario = JSON.parse(JSON.stringify(FALLBACK_BASELINE));
         if (presetType === 'deficit') {
           targetScenario.scenario_name = 'East Malaysia Stockout Deficit (Offline)';
           targetScenario.stores[2].requests['1'] = 50;
+        } else if (presetType === 'air') {
+          targetScenario.scenario_name = 'Expedited Air Freight Transshipment (Offline)';
+          targetScenario.warehouses[0].name = 'Kuala Lumpur Hub (KLIA Air Cargo)';
+          targetScenario.warehouses[0].latitude = 2.7456;
+          targetScenario.warehouses[0].longitude = 101.7072;
+          targetScenario.warehouses[0].is_airport = true;
+          targetScenario.warehouses[0].is_port = false;
+          targetScenario.warehouses[2].name = 'Kuching Air Cargo Hub';
+          targetScenario.warehouses[2].latitude = 1.4847;
+          targetScenario.warehouses[2].longitude = 110.3472;
+          targetScenario.warehouses[2].is_airport = true;
+          targetScenario.warehouses[2].is_port = false;
+          targetScenario.budget_cap_myr = 9500;
         }
       }
 

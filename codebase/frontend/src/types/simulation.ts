@@ -4,6 +4,7 @@ export interface Warehouse {
   latitude: number;
   longitude: number;
   is_port: boolean;
+  is_airport?: boolean;
   inventory: Record<string, number>;
 }
 
@@ -27,6 +28,8 @@ export interface EconomicParameters {
   fuel_price_myr_per_liter: number;
   intermodal_sea_base_fee_myr: number;
   intermodal_sea_per_kg_myr: number;
+  intermodal_air_base_fee_myr?: number;
+  intermodal_air_per_kg_myr?: number;
   default_budget_cap_myr: number;
 }
 
@@ -109,6 +112,7 @@ export interface IntermodalRoute {
   sea_transit_hours: number;
   estimated_carrier_cost_myr: number;
   token_text: string;
+  modality?: Modality;
   path_coordinates?: [number, number][];
 }
 
@@ -287,6 +291,7 @@ export interface Stage4Result {
   is_budget_feasible: boolean;
   total_fleet_fuel_cost_myr: number;
   total_maritime_cost_myr: number;
+  total_air_cost_myr?: number;
   total_transport_cost_myr: number;
   budget_cap_myr: number;
   budget_variance_myr: number;

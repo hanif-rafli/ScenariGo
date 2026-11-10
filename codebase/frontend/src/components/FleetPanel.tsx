@@ -102,7 +102,11 @@ export const FleetPanel: React.FC<FleetPanelProps> = ({
       <div className="bg-black p-3 rounded-none space-y-2 text-xs">
         <div className="flex justify-between items-center text-white text-[10px] uppercase tracking-wider">
           <span>Cost Breakdown</span>
-          <span>Diesel: MYR {result.total_fleet_fuel_cost_myr.toFixed(2)} | Sea Freight: MYR {result.total_maritime_cost_myr.toFixed(2)}</span>
+          <span>
+            Diesel: MYR {result.total_fleet_fuel_cost_myr.toFixed(2)}
+            {result.total_maritime_cost_myr > 0 ? ` | Sea: MYR ${result.total_maritime_cost_myr.toFixed(2)}` : ''}
+            {(result.total_air_cost_myr ?? 0) > 0 ? ` | Air: MYR ${(result.total_air_cost_myr ?? 0).toFixed(2)}` : ''}
+          </span>
         </div>
         <div className="w-full bg-neutral-900 h-2 overflow-hidden flex rounded-none">
           <div
@@ -115,16 +119,30 @@ export const FleetPanel: React.FC<FleetPanelProps> = ({
             }}
             title="Road Diesel Burn"
           />
-          <div
-            className="bg-neutral-500 h-full"
-            style={{
-              width: `${Math.min(
-                (result.total_maritime_cost_myr / (result.total_transport_cost_myr || 1)) * 100,
-                100
-              )}%`,
-            }}
-            title="Sea Freight Surcharge"
-          />
+          {result.total_maritime_cost_myr > 0 && (
+            <div
+              className="bg-neutral-500 h-full"
+              style={{
+                width: `${Math.min(
+                  (result.total_maritime_cost_myr / (result.total_transport_cost_myr || 1)) * 100,
+                  100
+                )}%`,
+              }}
+              title="Sea Freight Surcharge"
+            />
+          )}
+          {(result.total_air_cost_myr ?? 0) > 0 && (
+            <div
+              className="bg-neutral-300 h-full"
+              style={{
+                width: `${Math.min(
+                  ((result.total_air_cost_myr ?? 0) / (result.total_transport_cost_myr || 1)) * 100,
+                  100
+                )}%`,
+              }}
+              title="Air Freight Surcharge"
+            />
+          )}
         </div>
       </div>
 

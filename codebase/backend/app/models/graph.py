@@ -53,9 +53,10 @@ class IntermodalRoute(BaseModel):
     sea_transit_hours: float
     estimated_carrier_cost_myr: float
     token_text: str
+    modality: Modality = Modality.MARITIME
     path_coordinates: list[tuple[float, float]] = Field(
         default_factory=list,
-        description="Navigational sea fairway waypoints [latitude, longitude]",
+        description="Navigational sea fairway or air corridor waypoints [latitude, longitude]",
     )
 
 

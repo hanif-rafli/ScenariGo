@@ -107,37 +107,42 @@ export const ReachabilityPanel: React.FC<ReachabilityPanelProps> = ({ result, lo
       {result.intermodal_routes.length > 0 && (
         <div className="space-y-2 pt-1">
           <div className="text-[10px] uppercase tracking-widest text-white">
-            Activated Maritime Corridors:
+            Activated Intermodal Corridors (Sea & Air):
           </div>
 
           <div className="space-y-2">
-            {result.intermodal_routes.map((route, idx) => (
-              <div
-                key={idx}
-                className="p-3 bg-black text-xs text-white space-y-2 rounded-none"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] border-b border-neutral-800 pb-1.5">
-                  <span className="font-bold">
-                    {route.departure_port_name} &rarr; {route.arrival_port_name}
-                  </span>
-                  <span className="font-bold">
-                    [SEA: {route.sea_distance_km} km | ~{route.sea_transit_hours} hrs]
-                  </span>
-                </div>
+            {result.intermodal_routes.map((route, idx) => {
+              const isAir = route.modality === 2;
+              return (
+                <div
+                  key={idx}
+                  className="p-3 bg-black text-xs text-white space-y-2 rounded-none"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] border-b border-neutral-800 pb-1.5">
+                    <span className="font-bold">
+                      {route.departure_port_name} &rarr; {route.arrival_port_name}
+                    </span>
+                    <span className="font-bold">
+                      {isAir
+                        ? `[AIR: ${route.sea_distance_km} km | ~${route.sea_transit_hours} hrs]`
+                        : `[SEA: ${route.sea_distance_km} km | ~${route.sea_transit_hours} hrs]`}
+                    </span>
+                  </div>
 
-                <div className="text-[11px]">
-                  Fulfilling: <strong className="font-bold">{route.target_store_name}</strong> with{' '}
-                  <strong className="font-bold">{route.quantity} units P{route.product_id}</strong>
-                </div>
+                  <div className="text-[11px]">
+                    Fulfilling: <strong className="font-bold">{route.target_store_name}</strong> with{' '}
+                    <strong className="font-bold">{route.quantity} units P{route.product_id}</strong>
+                  </div>
 
-                <div className="flex justify-between items-center text-[11px] pt-1 border-t border-neutral-900">
-                  <span>Carrier Surcharge:</span>
-                  <span className="font-bold">
-                    MYR {route.estimated_carrier_cost_myr.toLocaleString()}
-                  </span>
+                  <div className="flex justify-between items-center text-[11px] pt-1 border-t border-neutral-900">
+                    <span>Carrier Surcharge:</span>
+                    <span className="font-bold">
+                      MYR {route.estimated_carrier_cost_myr.toLocaleString()}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

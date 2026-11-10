@@ -25,7 +25,7 @@ from app.models.flow import (
     Stage3Result,
 )
 from app.core.stage2_reachability import evaluate_reachability, get_corridor_waypoints
-from app.data.malaysia_network import MARITIME_PENANG_TO_KUCHING_WAYPOINTS
+from app.data.malaysia_network import MARITIME_PENANG_TO_KUCHING_WAYPOINTS, AIR_KLIA_TO_KUCHING_WAYPOINTS
 
 
 class FlowEdge:
@@ -330,9 +330,11 @@ def solve_network_flow(
                         },
                     ))
                 else:
-                    # Cross-island: Intermodal sea transport via port gateways
+                    # Cross-island: Intermodal sea transport via port gateways or air freight via airports
                     dep_port = next((p for p in warehouses if p.is_port and node_to_comp.get(p.warehouse_id) == w_comp), None)
                     arr_port = next((p for p in warehouses if p.is_port and node_to_comp.get(p.warehouse_id) == s_comp), None)
+                    dep_airport = next((a for a in warehouses if a.is_airport and node_to_comp.get(a.warehouse_id) == w_comp), None)
+                    arr_airport = next((a for a in warehouses if a.is_airport and node_to_comp.get(a.warehouse_id) == s_comp), None)
 
                     if dep_port and arr_port:
                         port_dep_node = f"PORT_DEP_{dep_port.warehouse_id}_PROD_{pid}"
@@ -366,6 +368,40 @@ def solve_network_flow(
                             req,
                             0,
                             {"type": "PORT_LAST_MILE", "product_id": pid},
+                        ))
+
+                    if dep_airport and arr_airport:
+                        air_dep_node = f"AIR_DEP_{dep_airport.warehouse_id}_PROD_{pid}"
+                        air_arr_node = f"AIR_ARR_{arr_airport.warehouse_id}_PROD_{pid}"
+
+                        raw_edges.append((
+                            wp_node,
+                            air_dep_node,
+                            w.inventory[pid],
+                            0,
+                            {"type": "AIR_FEEDER_LAND", "product_id": pid},
+                        ))
+                        raw_edges.append((
+                            air_dep_node,
+                            air_arr_node,
+                            80,  # Regional air cargo container / pallet capacity
+                            0,
+                            {
+                                "type": "TRANSPORT_AIR",
+                                "source_id": w.warehouse_id,
+                                "target_id": s.store_id,
+                                "departure_airport_id": dep_airport.warehouse_id,
+                                "arrival_airport_id": arr_airport.warehouse_id,
+                                "product_id": pid,
+                                "modality": Modality.AIR,
+                            },
+                        ))
+                        raw_edges.append((
+                            air_arr_node,
+                            sp_node,
+                            req,
+                            0,
+                            {"type": "AIR_LAST_MILE", "product_id": pid},
                         ))
 
     # Pre-register all node names into integer mapping
@@ -491,6 +527,31 @@ def solve_network_flow(
                         node_type="PORT_GATEWAY",
                         title=f"Port Arrival Berth: {dep_port.name} (P{pid})",
                         metadata={"port_name": dep_port.name, "product_id": pid, "berth": "ARRIVAL"},
+                    )
+
+    # Airport Cargo Gateways
+    for dep_air in warehouses:
+        if dep_air.is_airport:
+            for pid in ["0", "1", "2"]:
+                dep_key = f"AIR_DEP_{dep_air.warehouse_id}_PROD_{pid}"
+                arr_key = f"AIR_ARR_{dep_air.warehouse_id}_PROD_{pid}"
+                if any(u == dep_key or v == dep_key for u, v, _, _, _ in raw_edges):
+                    nodes_dict[dep_key] = GraphNode(
+                        node_id=dep_key,
+                        short_label=f"(AirDep-W{dep_air.warehouse_id},P{pid})",
+                        layer=4,
+                        node_type="AIR_GATEWAY",
+                        title=f"Air Cargo Departure Terminal: {dep_air.name} (P{pid})",
+                        metadata={"airport_name": dep_air.name, "product_id": pid, "terminal": "DEPARTURE"},
+                    )
+                if any(u == arr_key or v == arr_key for u, v, _, _, _ in raw_edges):
+                    nodes_dict[arr_key] = GraphNode(
+                        node_id=arr_key,
+                        short_label=f"(AirArr-W{dep_air.warehouse_id},P{pid})",
+                        layer=4,
+                        node_type="AIR_GATEWAY",
+                        title=f"Air Cargo Arrival Terminal: {dep_air.name} (P{pid})",
+                        metadata={"airport_name": dep_air.name, "product_id": pid, "terminal": "ARRIVAL"},
                     )
 
     # Store Products & Stores
@@ -635,6 +696,45 @@ def solve_network_flow(
             corridor_flows[corridor_key]["cap"] = 100  # Regional feeder container vessel capacity
             corridor_flows[corridor_key]["mod"] = Modality.MARITIME
 
+        elif edge_type == "TRANSPORT_AIR" and actual_flow > 0:
+            wid = meta["source_id"]
+            sid = meta["target_id"]
+            pid = meta["product_id"]
+            dep_id = meta["departure_airport_id"]
+            arr_id = meta["arrival_airport_id"]
+
+            w = wh_map[wid]
+            s = st_map[sid]
+            dep_air = wh_map[dep_id]
+            arr_air = wh_map[arr_id]
+
+            allocations.append(
+                AllocationItem(
+                    allocation_id=f"ALLOC-{alloc_id_counter:03d}",
+                    source_id=wid,
+                    source_name=w.name,
+                    target_id=sid,
+                    target_name=s.name,
+                    product_id=str(pid),
+                    quantity=actual_flow,
+                    modality=Modality.AIR,
+                    route_type=RouteType.INTERMODAL_TRANSSHIPMENT,
+                    distance_km=985.0,
+                    transit_hours=1.8,
+                    departure_port_name=dep_air.name,
+                    arrival_port_name=arr_air.name,
+                    path_coordinates=AIR_KLIA_TO_KUCHING_WAYPOINTS,
+                    status=AllocationStatus.ALLOCATED,
+                )
+            )
+            alloc_id_counter += 1
+            total_satisfied += actual_flow
+
+            corridor_key = f"{dep_air.name} -> {arr_air.name} (Air Corridor)"
+            corridor_flows[corridor_key]["flow"] += actual_flow
+            corridor_flows[corridor_key]["cap"] = 80  # Air freighter cargo capacity
+            corridor_flows[corridor_key]["mod"] = Modality.AIR
+
     # 6. Detailed Causal Bottleneck Traceability
     # For every store and requested product, check requested vs delivered
     store_prod_delivered: dict[tuple[int, str], int] = defaultdict(int)
@@ -755,10 +855,16 @@ def solve_network_flow(
         )
         for alloc in allocations:
             if alloc.route_type == RouteType.INTERMODAL_TRANSSHIPMENT:
-                tokens.append(
-                    f"[INFO: INTERMODAL ALLOCATED] {alloc.quantity} units P{alloc.product_id} dispatched from {alloc.source_name} "
-                    f"via {alloc.departure_port_name} -> {alloc.arrival_port_name} to {alloc.target_name} [SEA FAIRWAY: 1,510 km]."
-                )
+                if alloc.modality == Modality.AIR:
+                    tokens.append(
+                        f"[INFO: AIR ALLOCATED] {alloc.quantity} units P{alloc.product_id} air-freighted from {alloc.source_name} "
+                        f"via {alloc.departure_port_name} -> {alloc.arrival_port_name} to {alloc.target_name} [AIR FREIGHT: 985 km | ~1.8 hrs]."
+                    )
+                else:
+                    tokens.append(
+                        f"[INFO: INTERMODAL ALLOCATED] {alloc.quantity} units P{alloc.product_id} dispatched from {alloc.source_name} "
+                        f"via {alloc.departure_port_name} -> {alloc.arrival_port_name} to {alloc.target_name} [SEA FAIRWAY: 1,510 km]."
+                    )
             else:
                 tokens.append(
                     f"[OK: HIGHWAY ALLOCATED] {alloc.quantity} units P{alloc.product_id} from {alloc.source_name} to {alloc.target_name} "
