@@ -75,3 +75,40 @@ def test_air_freight_stage4_fleet_routing_and_budget():
     assert res.total_air_cost_myr > 0
     assert any("[AIR FREIGHT AUDIT]" in t for t in res.tokens)
     assert res.dispatched_trucks_count > 0
+
+
+def test_airport_highway_corridors_snapped():
+    """Validates that land highway paths connect directly to airport nodes with zero gap."""
+    preset = get_air_freight_preset()
+    res = evaluate_reachability(preset.warehouses, preset.stores)
+
+    wh_by_name = {w.name: w for w in preset.warehouses}
+    st_by_name = {s.name: s for s in preset.stores}
+
+    klia_wh = wh_by_name["Kuala Lumpur Hub (KLIA Air Cargo)"]
+    kch_wh = wh_by_name["Kuching Air Cargo Hub"]
+    sa_st = st_by_name["Shah Alam Retail"]
+    kch_st = st_by_name["Kuching Central Mall"]
+
+    # Check KLIA -> Shah Alam highway edge
+    klia_sa_edges = [
+        e for e in res.edges
+        if e.source_name == klia_wh.name and e.target_name == sa_st.name and e.modality == Modality.LAND
+    ]
+    assert len(klia_sa_edges) == 1
+    edge_klia_sa = klia_sa_edges[0]
+    assert edge_klia_sa.path_coordinates[0] == (klia_wh.latitude, klia_wh.longitude)
+    assert edge_klia_sa.path_coordinates[-1] == (sa_st.latitude, sa_st.longitude)
+    assert edge_klia_sa.distance_km == 48.9
+
+    # Check Kuching Airport -> Kuching Mall highway edge
+    kch_edges = [
+        e for e in res.edges
+        if e.source_name == kch_wh.name and e.target_name == kch_st.name and e.modality == Modality.LAND
+    ]
+    assert len(kch_edges) == 1
+    edge_kch = kch_edges[0]
+    assert edge_kch.path_coordinates[0] == (kch_wh.latitude, kch_wh.longitude)
+    assert edge_kch.path_coordinates[-1] == (kch_st.latitude, kch_st.longitude)
+    assert edge_kch.distance_km == 9.3
+
