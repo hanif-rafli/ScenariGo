@@ -620,6 +620,20 @@ MARITIME_PTP_JOHOR_TO_KUCHING_WAYPOINTS: list[tuple[float, float]] = [
     (1.5533, 110.3592),  # Kuching Transshipment Port
 ]
 
+# Central South China Sea Deepwater Fairway connecting Peninsular Ports to Sabah / Northern Borneo
+MARITIME_CENTRAL_SCS_TO_SABAH_WAYPOINTS: list[tuple[float, float]] = [
+    (1.3620, 103.5510),  # Southern Peninsular departure corridor
+    (1.1600, 103.6500),  # Singapore Strait Traffic Separation Scheme (TSS)
+    (1.2500, 104.1500),
+    (1.3300, 104.4500),
+    (1.8000, 105.8000),  # Exiting Singapore Strait into open South China Sea
+    (2.8000, 107.8000),  # Deep ocean transit
+    (3.9000, 110.2000),  # Central South China Sea
+    (4.8000, 112.5000),  # Deepwater corridor north of Luconia Shoals
+    (5.4000, 114.5000),  # Approaching Sabah outer fairway
+    (5.9800, 116.0700),  # Kota Kinabalu Port approach
+]
+
 
 # ==============================================================================
 # 3. AIR FREIGHT FLIGHT CORRIDORS (High-Altitude Great-Circle Trajectories)

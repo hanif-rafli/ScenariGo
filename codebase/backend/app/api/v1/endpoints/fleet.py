@@ -24,12 +24,18 @@ async def evaluate_fleet_routing(request: SimulationRequest) -> Stage4Result:
         )
 
         # 2. Run Stage 4 Fleet Routing & Budget Pacing
+        econ_params = request.fleet.economic_parameters if request.fleet else None
+        budget_cap = request.budget_cap_myr if request.budget_cap_myr is not None else (
+            econ_params.default_budget_cap_myr if econ_params else 7000.0
+        )
         stage4_res = solve_fleet_routing(
             allocations=flow_res.allocations,
             warehouses=request.warehouses,
             stores=request.stores,
-            budget_cap_myr=request.budget_cap_myr,
-            economic_parameters=request.fleet.economic_parameters,
+            fleet=request.custom_fleet,
+            budget_cap_myr=budget_cap,
+            economic_parameters=econ_params,
+            products=request.products,
         )
         return stage4_res
     except Exception as e:

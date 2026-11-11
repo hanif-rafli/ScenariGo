@@ -87,7 +87,9 @@ def get_bobs_stationery_preset() -> SimulationRequest:
     )
 
     return SimulationRequest(
+        scenario_id="bob-stationery",
         scenario_name="Bob's Stationery Enterprise Baseline",
+        is_preset=True,
         warehouses=warehouses,
         stores=stores,
         fleet=fleet,
@@ -98,7 +100,9 @@ def get_bobs_stationery_preset() -> SimulationRequest:
 def get_deficit_preset() -> SimulationRequest:
     """East Malaysia Stockout scenario triggering Stage 1 early cutoff."""
     preset = get_bobs_stationery_preset()
+    preset.scenario_id = "deficit-sample"
     preset.scenario_name = "East Malaysia Stockout Deficit"
+    preset.is_preset = True
     # Artificially raise P1 demand beyond total supply (total supply is 45)
     preset.stores[2].requests["1"] = 50
     return preset
@@ -192,7 +196,9 @@ def get_air_freight_preset() -> SimulationRequest:
     )
 
     return SimulationRequest(
+        scenario_id="air-freight",
         scenario_name="Expedited Air Freight Transshipment (KLIA -> Kuching)",
+        is_preset=True,
         warehouses=warehouses,
         stores=stores,
         fleet=fleet,
@@ -311,7 +317,9 @@ def get_tri_port_preset() -> SimulationRequest:
     )
 
     return SimulationRequest(
+        scenario_id="tri-port",
         scenario_name="Tri-Port Multi-Gateway Peninsular Logistics (Butterworth, Port Klang, PTP Johor)",
+        is_preset=True,
         warehouses=warehouses,
         stores=stores,
         fleet=fleet,

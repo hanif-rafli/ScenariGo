@@ -2,27 +2,22 @@
 ## Interactive Multi-Modal Logistics Scenario Simulation & Discrete Optimization Engine
 
 > **Project Lead & Author**: Muhammad Hanif Rafli (Hanif)  
-> **Academic Alignment**: Monash University — Faculty of Information Technology (Computer Science & Data Science)  
-> **Directory Location**: [`ScenariGo/`](Ad%20astra/ScenariGo)  
 > **Status**: Active Architectural Specification (Version 1.0)  
-> **Historical Notes**: Migrated from [`docs/old-specs/Specs.txt`](Ad%20astra/ScenariGo/docs/old-specs/Specs.txt)  
-> **Author Blog Reference**: [Hanif's Technical Post](https://sinnaungih.vercel.app/post/DUGR5M206gOrZhUFGGNv)
+> **Historical Notes**: Migrated from `docs/old-specs/Specs.txt`  
+> **Author Portfolio Reference**: [Hanif's Technical Post](https://sinnaungih.vercel.app/post/DUGR5M206gOrZhUFGGNv)
 
 ---
 
-## 1. Upstream Context & Cross-Project Intelligence Linkage
+## 1. Upstream Context & Domain Foundations
 
-ScenariGo is not an isolated exercise. It directly inherits the algorithmic theory, software architecture, and industrial logistics intelligence established across Hanif's major engineering repositories:
+ScenariGo brings together discrete combinatorial optimization, operations research, and Malaysian freight forwarding logistics realities:
 
-| Repository / Module | Primary Assets Inherited | Direct File Linkage |
+| Engineering Domain | Primary Principles & Capabilities Applied | Context / Reference |
 | :--- | :--- | :--- |
-| **TXA 2026 Master Dossier** | Ground-level field intelligence on Malaysian container hubs (Westports, PTP), multimodal freight forwarding (BH Armada), customs OGA barriers, and the ECRL landbridge. | [`TXA/README.md`](Job%20Search/TXA/README.md) \| [`Summaries/00_README.md`](Job%20Search/TXA/Summaries/00_README.md) |
-| **TXA Exhibitor Intelligence** | Practical forwarder pain points: unannounced blank sailings, intermodal sea/air transshipment delays, and the necessity of human-in-the-loop crisis management. | [`03_Exhibitor_Interviews_DeepDive.md`](Job%20Search/TXA/Summaries/03_Exhibitor_Interviews_DeepDive.md) |
-| **TXA Strategic Synthesis** | Sergio's Playbook: layered architectures, rules-first floors, actionable UX feedback over opaque status badges, and avoiding premature microservice sprawl. | [`04_TXA_Executive_Strategic_Synthesis.md`](Job%20Search/TXA/Summaries/04_TXA_Executive_Strategic_Synthesis.md) |
-| **TXA Jargon Dictionary** | Standard definitions of 120+ supply chain, port, customs, and operations research terms (3PL, CFS, CY, LOCODE, EDI 304, MILP, MDP). | [`05_TXA_Jargon_and_Abbreviation_Dictionary.md`](Job%20Search/TXA/Summaries/05_TXA_Jargon_and_Abbreviation_Dictionary.md) |
-| **Discrete Optimization Principles** | Mathematical implementation of circulation with demands and lower bounds via Ford-Fulkerson, and multi-source Dijkstra on road graphs. | [`Discrete Optimization/Assignment 1/approach.txt`](MONASH/Discrete Optimization%20s2%202025/Assignment%201/approach.txt) |
-| **Averis Hackathon (Ship Happens)** | Top 10 Finalist: 5-stage verification architecture, stress resilience testing (250 files, zero exceptions), and side-by-side evidence UI. | [`Hackathon Averis/codebase/README.md`](MONASH/Hackathon%20Averis/codebase/README.md) |
-| **Monash FYP (AIMail / MDS25)** | Multi-agent router/critic architecture, clean API contracts, and three-tier engineering safety protocol. | [`AIMail/specs/context/api-contracts.md`](MONASH/Final%20Year%20Project/AIMail/specs/context/api-contracts.md) |
+| **Container Freight & Port Intelligence** | Ground-level domain knowledge on Malaysian container gateways (Port Klang Westports, Port of Tanjung Pelepas Johor, Butterworth), domestic cabotage, and intermodal sea/air transshipment delays. | Logistics Trade Architecture |
+| **Resilience & Verified Engineering** | Multi-stage verification pipeline, deterministic audit tokens over opaque badges, and zero-fluff telemetry. | Sergio's Playbook |
+| **Combinatorial Discrete Optimization** | Circulation with demands and lower bounds via Ford-Fulkerson, linked-list residual networks, and multi-source Dijkstra road routing. | Operations Research Principles |
+| **Decoupled Architecture** | Four-stage sequential deterministic floor decoupled from UI visualization and animated layers. | System Design Standard |
 
 ---
 
@@ -116,7 +111,7 @@ graph TD
      - Direct edges for land-reachable pairs.
      - Port-intermodal edges for cross-water pairs (with transshipment throughput limits).
   4. **Store to Sink Layer**: Lower bound and capacity matching exact store demand $[\text{Request}(s, p), \text{Request}(s, p)]$.
-- Uses circulation with demands and a super-source/super-sink to resolve lower bounds (directly adapted from Discrete Optimization Principles).
+- Uses circulation with demands and a super-source/super-sink to resolve lower bounds and strictly fulfill non-negotiable retail demand constraints.
 - **Output**: An exact allocation matrix $\mathbf{A}[w, s, p]$ specifying the quantity of product $p$ dispatched from warehouse $w$ to store $s$.
 
 ### 4.4 Stage 4: Fleet Routing, Range & Budget Verification
@@ -171,7 +166,7 @@ graph LR
 | **Map Rendering** | **React-Leaflet (`Leaflet.js`)** | Lightweight, open-source, uses standard OpenStreetMap tiles, renders GeoJSON country shapes and custom markers with zero licensing fees. |
 | **Data Ingestion** | **Papaparse (Browser CSV Parser)** | Allows drag-and-drop of `warehouses.csv` and `stores.csv`, eliminating tedious manual coordinate entry. |
 | **Backend API** | **FastAPI (Python 3.12)** | Asynchronous, auto-generates OpenAPI documentation (`/docs`), seamless integration with Python graph algorithms. |
-| **Optimization Core** | **Custom Python Algorithms** | Implements Ford-Fulkerson, linked-list residual graphs, and Dijkstra from first principles (showcasing Discrete Optimization mastery). |
+| **Optimization Core** | **Custom Python Algorithms** | Implements Ford-Fulkerson, linked-list residual graphs, and Dijkstra from first principles without black-box third-party solvers. |
 | **Deployment Target** | **Vercel (UI) + Render / Fly.io (API)** | Accessible via public HTTPS URL on any desktop or mobile device. |
 
 ---

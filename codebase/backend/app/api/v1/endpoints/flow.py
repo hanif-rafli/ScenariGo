@@ -12,7 +12,7 @@ router = APIRouter()
     summary="Stage 3 Multi-Commodity Network Flow with Bounds",
     description=(
         "Computes the discrete commodity allocation matrix via Ford-Fulkerson circulation "
-        "with lower bounds (Discrete Optimization Principles), ensuring non-negotiable retail demand constraints "
+        "with lower bounds and demands, ensuring non-negotiable retail demand constraints "
         "and identifying physical highway or maritime transshipment bottlenecks."
     ),
 )

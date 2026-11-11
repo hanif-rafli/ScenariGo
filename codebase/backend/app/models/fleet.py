@@ -67,6 +67,7 @@ class TruckInstance(BaseModel):
     current_coords: tuple[float, float]
     assigned_allocation_id: Optional[str] = None
     is_assigned: bool = False
+    is_custom: bool = False
 
 
 class Stage4Result(BaseModel):

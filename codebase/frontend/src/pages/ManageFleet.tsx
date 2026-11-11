@@ -1,20 +1,27 @@
 import React, { useState } from 'react';
-import { TruckInstance, DispatchItinerary } from '../types/simulation';
+import { TruckInstance, DispatchItinerary, Warehouse } from '../types/simulation';
 
 interface ManageFleetProps {
   fleet: TruckInstance[];
   itineraries: DispatchItinerary[];
+  warehouses?: Warehouse[];
   onAddTruck?: (newTruck: TruckInstance) => void;
+  onDeleteTruck?: (truckId: string) => void;
   onSelectTruckTask?: (truckId: string) => void;
 }
 
 export const ManageFleet: React.FC<ManageFleetProps> = ({
   fleet,
   itineraries,
+  warehouses = [],
   onAddTruck,
+  onDeleteTruck,
 }) => {
-  const [filterStatus, setFilterStatus] = useState<'ALL' | 'ASSIGNED' | 'IDLE'>('ALL');
+  const [filterStatus, setFilterStatus] = useState<'ALL' | 'ASSIGNED' | 'IDLE' | 'CUSTOM'>('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Default warehouse base location
+  const defaultWarehouseName = warehouses[0]?.name ?? 'Kuala Lumpur Hub';
 
   // Form state for adding custom truck
   const [name, setName] = useState('');
@@ -22,7 +29,7 @@ export const ManageFleet: React.FC<ManageFleetProps> = ({
   const [tankLiters, setTankLiters] = useState(100);
   const [kmpl, setKmpl] = useState(8.5);
   const [payloadKg, setPayloadKg] = useState(3500);
-  const [baseLocation, setBaseLocation] = useState('Kuala Lumpur Hub');
+  const [baseLocation, setBaseLocation] = useState(defaultWarehouseName);
 
   // Map truck_id -> assigned itinerary
   const itineraryMap: Record<string, DispatchItinerary> = {};
@@ -32,11 +39,13 @@ export const ManageFleet: React.FC<ManageFleetProps> = ({
 
   const assignedCount = fleet.filter((t) => itineraryMap[t.truck_id] || t.is_assigned).length;
   const idleCount = fleet.length - assignedCount;
+  const customCount = fleet.filter((t) => t.is_custom).length;
 
   const filteredTrucks = fleet.filter((t) => {
     const isAssigned = !!itineraryMap[t.truck_id] || t.is_assigned;
     if (filterStatus === 'ASSIGNED') return isAssigned;
     if (filterStatus === 'IDLE') return !isAssigned;
+    if (filterStatus === 'CUSTOM') return !!t.is_custom;
     return true;
   });
 
@@ -44,8 +53,20 @@ export const ManageFleet: React.FC<ManageFleetProps> = ({
     e.preventDefault();
     if (!name.trim()) return;
 
+    // Resolve base location coordinates from warehouses list
+    const matchedWarehouse = warehouses.find(
+      (w) => w.name.toLowerCase() === baseLocation.toLowerCase()
+    );
+    const coords: [number, number] = matchedWarehouse
+      ? [matchedWarehouse.latitude, matchedWarehouse.longitude]
+      : baseLocation.includes('Penang')
+      ? [5.4164, 100.3327]
+      : baseLocation.includes('Kuching')
+      ? [1.5533, 110.3592]
+      : [3.139, 101.6869];
+
     const newTruck: TruckInstance = {
-      truck_id: `TRK-${String(fleet.length + 1).padStart(3, '0')}`,
+      truck_id: `TRK-CUST-${String(fleet.length + 1).padStart(3, '0')}-${Date.now().toString().slice(-4)}`,
       name: name.trim(),
       model_id: modelId,
       image_url: modelId === 'isuzu_3ton' ? '/assets/trucks/isuzu_3ton.jpg' : '/assets/trucks/tata_ace.jpg',
@@ -53,12 +74,9 @@ export const ManageFleet: React.FC<ManageFleetProps> = ({
       fuel_economy_kmpl: Number(kmpl),
       fuel_tank_capacity_l: Number(tankLiters),
       current_location_name: baseLocation,
-      current_coords: baseLocation.includes('Penang')
-        ? [5.4164, 100.3327]
-        : baseLocation.includes('Kuching')
-        ? [1.5533, 110.3592]
-        : [3.1390, 101.6869],
+      current_coords: coords,
       is_assigned: false,
+      is_custom: true,
     };
 
     onAddTruck?.(newTruck);
@@ -144,6 +162,16 @@ export const ManageFleet: React.FC<ManageFleetProps> = ({
         >
           IDLE ({idleCount})
         </button>
+        <button
+          onClick={() => setFilterStatus('CUSTOM')}
+          className={`px-2.5 py-1 rounded-none text-xs transition-colors cursor-pointer ${
+            filterStatus === 'CUSTOM'
+              ? 'bg-white text-black font-bold'
+              : 'bg-black text-white hover:bg-neutral-900'
+          }`}
+        >
+          CUSTOM ASSETS ({customCount})
+        </button>
       </div>
 
       {/* 4. Commercial Truck Cards Grid */}
@@ -162,17 +190,40 @@ export const ManageFleet: React.FC<ManageFleetProps> = ({
                 {/* Real Commercial Truck Photography */}
                 <div className="relative w-full h-44 bg-black overflow-hidden rounded-none">
                   <img
-                    src={truck.image_url}
+                    src={truck.image_url || '/assets/trucks/isuzu_3ton.jpg'}
                     alt={truck.name}
                     className="w-full h-full object-cover transition-transform hover:scale-105 duration-300 rounded-none"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/assets/trucks/isuzu_3ton.jpg';
+                      const target = e.target as HTMLImageElement;
+                      if (!target.src.endsWith('/assets/trucks/isuzu_3ton.jpg')) {
+                        target.src = '/assets/trucks/isuzu_3ton.jpg';
+                      }
                     }}
                   />
-                  <div className="absolute top-2 left-2 bg-black px-2 py-0.5 rounded-none border border-neutral-700 text-[10px] text-white font-bold">
-                    {truck.truck_id}
+                  <div className="absolute top-2 left-2 flex items-center space-x-1.5">
+                    <span className="bg-black px-2 py-0.5 rounded-none border border-neutral-700 text-[10px] text-white font-bold">
+                      {truck.truck_id}
+                    </span>
+                    {truck.is_custom && (
+                      <span className="bg-white text-black px-1.5 py-0.5 rounded-none text-[9px] font-bold">
+                        [CUSTOM]
+                      </span>
+                    )}
                   </div>
-                  <div className="absolute top-2 right-2">
+                  <div className="absolute top-2 right-2 flex items-center space-x-1.5">
+                    {truck.is_custom && onDeleteTruck && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteTruck(truck.truck_id);
+                        }}
+                        className="px-1.5 py-0.5 bg-neutral-900 hover:bg-white hover:text-black border border-neutral-700 text-white text-[9px] font-bold cursor-pointer rounded-none transition-colors"
+                        title="Delete custom vehicle"
+                      >
+                        [REMOVE]
+                      </button>
+                    )}
                     {isAssigned ? (
                       <span className="px-2 py-0.5 rounded-none bg-black border border-white text-white text-[10px] font-bold">
                         [ASSIGNED]
@@ -381,9 +432,19 @@ export const ManageFleet: React.FC<ManageFleetProps> = ({
                     onChange={(e) => setBaseLocation(e.target.value)}
                     className="w-full bg-black border border-neutral-700 focus:border-white px-3 py-2 rounded-none text-white font-mono outline-none"
                   >
-                    <option value="Kuala Lumpur Hub">Kuala Lumpur Hub</option>
-                    <option value="Penang Logistics Dep">Penang Logistics Dep</option>
-                    <option value="Kuching Transshipment">Kuching Transshipment</option>
+                    {warehouses.length > 0 ? (
+                      warehouses.map((w) => (
+                        <option key={w.warehouse_id} value={w.name}>
+                          {w.name} ({w.is_airport ? 'Air Cargo' : w.is_port ? 'Port' : 'Depot'})
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="Kuala Lumpur Hub">Kuala Lumpur Hub</option>
+                        <option value="Penang Logistics Dep">Penang Logistics Dep</option>
+                        <option value="Kuching Transshipment">Kuching Transshipment</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </div>

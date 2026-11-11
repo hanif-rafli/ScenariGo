@@ -2,6 +2,44 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator
 
 
+class ProductItem(BaseModel):
+    product_id: str
+    name: str
+    sku: str
+    category: str = "Stationery & Office Supplies"
+    unit_weight_kg: float = Field(default=20.0, gt=0)
+    low_stock_threshold: int = Field(default=15, ge=0)
+
+
+def get_default_products() -> list[ProductItem]:
+    return [
+        ProductItem(
+            product_id="0",
+            name="A4 Copy Paper Ream Box",
+            sku="PAP-A4-80G",
+            category="Paper Supplies",
+            unit_weight_kg=12.5,
+            low_stock_threshold=20,
+        ),
+        ProductItem(
+            product_id="1",
+            name="Laser Toner Cartridge Crate",
+            sku="TNR-BLK-CR8",
+            category="Printing Consumables",
+            unit_weight_kg=8.0,
+            low_stock_threshold=15,
+        ),
+        ProductItem(
+            product_id="2",
+            name="Archival Lever-Arch Binder Case",
+            sku="BND-LV-CS12",
+            category="Filing & Storage",
+            unit_weight_kg=15.0,
+            low_stock_threshold=10,
+        ),
+    ]
+
+
 class ProductStock(BaseModel):
     product_id: str
     quantity: int = Field(ge=0, description="Available product quantity (non-negative)")

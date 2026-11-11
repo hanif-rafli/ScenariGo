@@ -21,6 +21,9 @@ dev = [
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-v --strict-markers"
+filterwarnings = [
+    "ignore:.*Using `httpx` with `starlette.testclient` is deprecated.*:Warning",
+]
 
 [tool.ruff]
 line-length = 100

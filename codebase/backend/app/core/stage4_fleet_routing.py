@@ -10,7 +10,7 @@ from collections import defaultdict
 import math
 from typing import Optional
 
-from app.models.entities import Warehouse, Store, EconomicParameters
+from app.models.entities import Warehouse, Store, EconomicParameters, ProductItem
 from app.models.graph import Modality
 from app.models.flow import AllocationItem, RouteType, AllocationStatus
 from app.models.graph_trace import (
@@ -157,38 +157,76 @@ def get_default_fleet(warehouses: list[Warehouse]) -> list[TruckInstance]:
 
 
 def hungarian_min_cost_assignment(cost_matrix: list[list[float]]) -> list[tuple[int, int]]:
-    """Pure Python implementation of Kuhn-Munkres (Hungarian) Min-Cost Matching.
+    """O(V^3) Kuhn-Munkres (Hungarian) Min-Cost Bipartite Matching in pure Python.
     
-    Finds the optimal 1-to-1 matching from rows (trucks) to cols (tasks)
-    that minimizes total cost. Cost matrix can be rectangular.
+    Guarantees exact minimum fuel cost matching for rectangular matrices (trucks != tasks)
+    by square padding with zero-cost dummy tasks/trucks and finite Big-M bounding.
     """
-    n_rows = len(cost_matrix)
-    if n_rows == 0:
+    if not cost_matrix or not cost_matrix[0]:
         return []
-    n_cols = len(cost_matrix[0])
-    if n_cols == 0:
-        return []
+    n_rows, n_cols = len(cost_matrix), len(cost_matrix[0])
+    dim = max(n_rows, n_cols)
+    finite_costs = [cost_matrix[r][c] for r in range(n_rows) for c in range(n_cols) if cost_matrix[r][c] < 1e7]
+    max_c = max(finite_costs) if finite_costs else 1000.0
+    big_m = max_c * dim * 10.0 + 10000.0
 
-    # Greedy initial matching for small rectangular bipartite graphs
-    assigned_cols: set[int] = set()
+    mat = [[0.0] * (dim + 1) for _ in range(dim + 1)]
+    for r in range(dim):
+        for c in range(dim):
+            if r < n_rows and c < n_cols:
+                mat[r + 1][c + 1] = cost_matrix[r][c] if cost_matrix[r][c] < 1e7 else big_m
+            else:
+                mat[r + 1][c + 1] = 0.0
+
+    u = [0.0] * (dim + 1)
+    v = [0.0] * (dim + 1)
+    p = [0] * (dim + 1)
+    way = [0] * (dim + 1)
+
+    for i in range(1, dim + 1):
+        p[0] = i
+        j0 = 0
+        minv = [float("inf")] * (dim + 1)
+        used = [False] * (dim + 1)
+        while True:
+            used[j0] = True
+            i0 = p[j0]
+            delta = float("inf")
+            j1 = 0
+            for j in range(1, dim + 1):
+                if not used[j]:
+                    cur = mat[i0][j] - u[i0] - v[j]
+                    if cur < minv[j]:
+                        minv[j] = cur
+                        way[j] = j0
+                    if minv[j] < delta:
+                        delta = minv[j]
+                        j1 = j
+            if delta >= big_m / 2.0:
+                break
+            for j in range(dim + 1):
+                if used[j]:
+                    u[p[j]] += delta
+                    v[j] -= delta
+                else:
+                    minv[j] -= delta
+            j0 = j1
+            if p[j0] == 0:
+                break
+        if p[j0] == 0:
+            while j0:
+                j1 = way[j0]
+                p[j0] = p[j1]
+                j0 = j1
+
     matches: list[tuple[int, int]] = []
+    for j in range(1, dim + 1):
+        i = p[j]
+        if 1 <= i <= n_rows and 1 <= j <= n_cols:
+            if cost_matrix[i - 1][j - 1] < 1e7 and mat[i][j] < big_m / 2.0:
+                matches.append((i - 1, j - 1))
 
-    # Sort row-col candidates by increasing cost
-    candidates: list[tuple[float, int, int]] = []
-    for r in range(n_rows):
-        for c in range(n_cols):
-            if cost_matrix[r][c] < 1e8:
-                candidates.append((cost_matrix[r][c], r, c))
-
-    candidates.sort(key=lambda x: x[0])
-
-    assigned_rows: set[int] = set()
-    for cost, r, c in candidates:
-        if r not in assigned_rows and c not in assigned_cols:
-            assigned_rows.add(r)
-            assigned_cols.add(c)
-            matches.append((r, c))
-
+    matches.sort(key=lambda m: m[0])
     return matches
 
 
@@ -197,12 +235,16 @@ def solve_fleet_routing(
     warehouses: list[Warehouse],
     stores: list[Store],
     fleet: Optional[list[TruckInstance]] = None,
-    budget_cap_myr: float = 7000.0,
+    budget_cap_myr: Optional[float] = None,
     economic_parameters: Optional[EconomicParameters] = None,
+    products: Optional[list[ProductItem]] = None,
 ) -> Stage4Result:
     """Executes Stage 4 Fleet Routing, Range Checking, and Budget Verification."""
     if economic_parameters is None:
         economic_parameters = EconomicParameters()
+
+    if budget_cap_myr is None:
+        budget_cap_myr = economic_parameters.default_budget_cap_myr
 
     if fleet is None or len(fleet) == 0:
         fleet = get_default_fleet(warehouses)
@@ -292,10 +334,16 @@ def solve_fleet_routing(
     cost_matrix: list[list[float]] = [[1e9 for _ in range(num_tasks)] for _ in range(num_trucks)]
     task_metadata: dict[tuple[int, int], dict] = {}
 
+    prod_weight_map: dict[str, float] = {}
+    if products:
+        for p in products:
+            prod_weight_map[str(p.product_id)] = p.unit_weight_kg
+
     for t_idx, truck in enumerate(fleet):
         for k_idx, task in enumerate(land_tasks):
-            # Payload weight check (assuming 20kg per commodity unit)
-            task_weight_kg = task.quantity * 20.0
+            # Payload weight check (using configured product unit weight, default 20.0 kg)
+            unit_wt = prod_weight_map.get(str(task.product_id), 20.0)
+            task_weight_kg = task.quantity * unit_wt
             if truck.payload_capacity_kg < task_weight_kg:
                 continue
 
@@ -304,8 +352,10 @@ def solve_fleet_routing(
                 continue
 
             # Determine pickup origin coordinates
-            source_wh = next((w for w in warehouses if w.name == task.source_name), None)
-            pickup_coords = (source_wh.latitude, source_wh.longitude) if source_wh else target_store and (target_store.latitude, target_store.longitude)
+            source_wh = wh_map.get(task.source_id)
+            if not source_wh:
+                source_wh = next((w for w in warehouses if w.name == task.source_name), None)
+            pickup_coords = (source_wh.latitude, source_wh.longitude) if source_wh else None
             if not pickup_coords:
                 continue
 

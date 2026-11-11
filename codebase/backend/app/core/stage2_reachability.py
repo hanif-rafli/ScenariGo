@@ -14,6 +14,7 @@ from app.data.malaysia_network import (
     MARITIME_PENANG_TO_KUCHING_WAYPOINTS,
     MARITIME_PORT_KLANG_TO_KUCHING_WAYPOINTS,
     MARITIME_PTP_JOHOR_TO_KUCHING_WAYPOINTS,
+    MARITIME_CENTRAL_SCS_TO_SABAH_WAYPOINTS,
     AIR_KLIA_TO_KUCHING_WAYPOINTS,
     HIGHWAY_PENANG_TO_IPOH_WAYPOINTS,
     HIGHWAY_BUTTERWORTH_TO_IPOH_WAYPOINTS,
@@ -93,6 +94,27 @@ def get_corridor_waypoints(
                 else list(reversed(MARITIME_PENANG_TO_KUCHING_WAYPOINTS))
             )
             return [c1] + list(pts[1:-1]) + [c2], 1510.4, Modality.MARITIME
+
+        # Destination-Aware Fallback for Arbitrary Cross-Strait Harbors (Never drop to road chords)
+        borneo_coord = c2 if not is_peninsular(c2[1]) else c1
+        pen_coord = c1 if is_peninsular(c1[1]) else c2
+        is_sabah_or_north = borneo_coord[0] >= 3.0 or any(
+            k in name1.lower() or k in name2.lower() for k in ["sabah", "kinabalu", "sandakan", "labuan", "bintulu", "miri"]
+        )
+
+        if is_sabah_or_north:
+            base_pts = MARITIME_CENTRAL_SCS_TO_SABAH_WAYPOINTS
+            pts = base_pts if is_peninsular(c1[1]) else list(reversed(base_pts))
+            return [c1] + list(pts[1:-1]) + [c2], 1450.0, Modality.MARITIME
+        else:
+            base_pts = (
+                MARITIME_PENANG_TO_KUCHING_WAYPOINTS
+                if pen_coord[0] > 4.5
+                else MARITIME_PORT_KLANG_TO_KUCHING_WAYPOINTS
+            )
+            pts = base_pts if is_peninsular(c1[1]) else list(reversed(base_pts))
+            dist = 1510.4 if pen_coord[0] > 4.5 else 1320.0
+            return [c1] + list(pts[1:-1]) + [c2], dist, Modality.MARITIME
 
     # 2. Highway Road Corridors (following North-South Expressway, ELITE E6 & Borneo Highway alignment)
     # Butterworth NBCT Corridors
@@ -395,6 +417,74 @@ def build_network_edges(
                 if (pw1.name, pw2.name) not in connected_pairs and (pw2.name, pw1.name) not in connected_pairs:
                     connected_pairs.append((pw1.name, pw2.name))
 
+    # Connect orphan Peninsular stores to nearest Peninsular warehouse
+    for ps in pen_stores:
+        if not any(ps.name == p[0] or ps.name == p[1] for p in connected_pairs):
+            if pen_warehouses:
+                nearest_pw = min(
+                    pen_warehouses,
+                    key=lambda w: haversine_distance_km(ps.latitude, ps.longitude, w.latitude, w.longitude)
+                )
+                connected_pairs.append((nearest_pw.name, ps.name))
+
+    # Connect orphan Borneo stores to nearest Borneo warehouse
+    for bs in bor_stores:
+        if not any(bs.name == p[0] or bs.name == p[1] for p in connected_pairs):
+            if bor_warehouses:
+                nearest_bw = min(
+                    bor_warehouses,
+                    key=lambda w: haversine_distance_km(bs.latitude, bs.longitude, w.latitude, w.longitude)
+                )
+                connected_pairs.append((nearest_bw.name, bs.name))
+
+    # Guarantee every warehouse has at least one land edge if facilities exist on the same landmass
+    for pw in pen_warehouses:
+        if not any(pw.name == p[0] or pw.name == p[1] for p in connected_pairs):
+            other_pen = [w for w in pen_warehouses if w.warehouse_id != pw.warehouse_id] or pen_stores
+            if other_pen:
+                nearest = min(other_pen, key=lambda n: haversine_distance_km(pw.latitude, pw.longitude, n.latitude, n.longitude))
+                connected_pairs.append((pw.name, nearest.name))
+
+    for bw in bor_warehouses:
+        if not any(bw.name == p[0] or bw.name == p[1] for p in connected_pairs):
+            other_bor = [w for w in bor_warehouses if w.warehouse_id != bw.warehouse_id] or bor_stores
+            if other_bor:
+                nearest = min(other_bor, key=lambda n: haversine_distance_km(bw.latitude, bw.longitude, n.latitude, n.longitude))
+                connected_pairs.append((bw.name, nearest.name))
+
+    def are_connected(n1: str, n2: str, pairs: list[tuple[str, str]]) -> bool:
+        adj: dict[str, set[str]] = {}
+        for a, b in pairs:
+            adj.setdefault(a, set()).add(b)
+            adj.setdefault(b, set()).add(a)
+        if n1 not in adj or n2 not in adj:
+            return False
+        visited = {n1}
+        queue = [n1]
+        while queue:
+            curr = queue.pop(0)
+            if curr == n2:
+                return True
+            for nxt in adj.get(curr, set()):
+                if nxt not in visited:
+                    visited.add(nxt)
+                    queue.append(nxt)
+        return False
+
+    # Guarantee full highway reachability across all Peninsular warehouses without redundant edges
+    for i in range(len(pen_warehouses) - 1):
+        pw_a = pen_warehouses[i].name
+        pw_b = pen_warehouses[i + 1].name
+        if not are_connected(pw_a, pw_b, connected_pairs):
+            connected_pairs.append((pw_a, pw_b))
+
+    # Guarantee all Borneo warehouses connect over land if multiple exist and disconnected
+    for i in range(len(bor_warehouses) - 1):
+        bw_a = bor_warehouses[i].name
+        bw_b = bor_warehouses[i + 1].name
+        if not are_connected(bw_a, bw_b, connected_pairs):
+            connected_pairs.append((bw_a, bw_b))
+
     node_by_name = {n["name"]: n for n in all_nodes}
 
     for name_a, name_b in connected_pairs:
@@ -540,11 +630,17 @@ def evaluate_reachability(
 
                 if surplus_comp:
                     target_store_id = next(
-                        sid for sid in comp.store_ids if st_map[sid].requests.get(pid, 0) > 0
+                        (sid for sid in comp.store_ids if st_map[sid].requests.get(pid, 0) > 0),
+                        comp.store_ids[0] if comp.store_ids else 0
                     )
-                    source_wh_id = next(
-                        wid for wid in surplus_comp.warehouse_ids if wh_map[wid].inventory.get(pid, 0) >= shortfall
-                    )
+                    cand_whs = [
+                        wid for wid in surplus_comp.warehouse_ids
+                        if wh_map[wid].inventory.get(pid, 0) > 0
+                    ]
+                    if not cand_whs:
+                        continue
+                    # Select warehouse with largest inventory for this product
+                    source_wh_id = max(cand_whs, key=lambda wid: wh_map[wid].inventory.get(pid, 0))
 
                     # Prefer air corridor if airport gateways are explicitly established on both landmasses
                     use_air = bool(peninsular_airports and borneo_airports and not (peninsular_ports and borneo_ports))

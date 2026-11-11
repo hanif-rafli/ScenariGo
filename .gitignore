@@ -59,5 +59,16 @@ vite.config.d.ts
 .DS_Store
 Thumbs.db
 
-# Agent scratch
-.agents/scratch/
+# Agent scratch & Local Databases
+.agents/
+*.db
+*.sqlite
+*.sqlite3
+
+# AI Assistant Instructions & Local Scripts
+AGENTS.md
+GEMINI.md
+start-agy.bat
+
+# Local Exploratory Research & Prototypes
+research/

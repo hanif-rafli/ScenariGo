@@ -216,7 +216,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
 
           <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
             {/* 1. EDGES LAYER */}
-            {currentStep.edges.map((edge: GraphEdgeSnapshot) => {
+            {currentStep.edges.map((edge: GraphEdgeSnapshot, idx: number) => {
               const uPos = nodePositions[edge.source];
               const vPos = nodePositions[edge.target];
               if (!uPos || !vPos) return null;
@@ -241,7 +241,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
                     : `${edge.flow}/${edge.capacity}`;
 
                 return (
-                  <g key={`flow-edge-${edge.edge_id}`}>
+                  <g key={`flow-edge-${edge.edge_id}-${idx}`}>
                     <line
                       x1={uPos.x}
                       y1={uPos.y}
@@ -290,7 +290,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
                   const midY = (uPos.y + vPos.y) / 2 - 8;
 
                   elements.push(
-                    <g key={`res-fwd-${edge.edge_id}`}>
+                    <g key={`res-fwd-${edge.edge_id}-${idx}`}>
                       <line
                         x1={uPos.x}
                         y1={uPos.y - 2}
@@ -329,7 +329,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
                   const pathD = `M ${vPos.x} ${vPos.y} Q ${cx} ${cy} ${uPos.x} ${uPos.y}`;
 
                   elements.push(
-                    <g key={`res-rev-${edge.edge_id}`}>
+                    <g key={`res-rev-${edge.edge_id}-${idx}`}>
                       <path
                         d={pathD}
                         fill="none"

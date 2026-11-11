@@ -59,11 +59,37 @@ export interface Stage1Result {
   summary: string;
 }
 
-export interface SimulationRequest {
+export interface ProductItem {
+  product_id: string;
+  name: string;
+  sku: string;
+  category: string;
+  unit_weight_kg: number;
+  low_stock_threshold: number;
+}
+
+export interface ScenarioSummary {
+  scenario_id: string;
   scenario_name: string;
+  is_preset: boolean;
+  is_modified: boolean;
+  is_active: boolean;
+  updated_at: string;
+  warehouse_count: number;
+  store_count: number;
+  budget_cap_myr: number;
+}
+
+export interface SimulationRequest {
+  scenario_id?: string;
+  scenario_name: string;
+  is_preset?: boolean;
+  is_modified?: boolean;
   warehouses: Warehouse[];
   stores: Store[];
+  products?: ProductItem[];
   fleet?: FleetConfig;
+  custom_fleet?: TruckInstance[];
   budget_cap_myr?: number;
 }
 
@@ -127,7 +153,7 @@ export interface Stage2Result {
 // Stage 3: Multi-Commodity Network Flow Models
 export type AllocationStatus = 'ALLOCATED' | 'SHORTFALL' | 'BOTTLENECK';
 export type RouteType = 'DIRECT_HIGHWAY' | 'INTERMODAL_TRANSSHIPMENT';
-export type BottleneckType = 'SUPPLY_EXHAUSTION' | 'CORRIDOR_SATURATION' | 'UNREACHABLE_ISLAND';
+export type BottleneckType = 'SUPPLY_EXHAUSTION' | 'CORRIDOR_SATURATION' | 'UNREACHABLE_ISLAND' | 'VESSEL_SLOT_EXHAUSTION';
 
 export interface BottleneckDetail {
   bottleneck_id: string;
@@ -285,6 +311,7 @@ export interface TruckInstance {
   current_coords: [number, number];
   assigned_allocation_id?: string | null;
   is_assigned: boolean;
+  is_custom?: boolean;
 }
 
 export interface Stage4Result {

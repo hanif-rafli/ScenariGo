@@ -1,6 +1,6 @@
 """Stage 3: Multi-Commodity Network Flow with Demands & Lower Bounds.
 
-Implements Ford-Fulkerson circulation with lower bounds (adapted from Discrete Optimization Principles).
+Implements Ford-Fulkerson multi-commodity circulation with lower bounds and demand constraints.
 Solves the exact multi-echelon inventory allocation matrix across Peninsular and East Malaysia,
 enforcing non-negotiable retail store requests as lower bounds [L, C] and identifying transport bottlenecks.
 """
@@ -24,7 +24,7 @@ from app.models.flow import (
     FlowEdgeUtilization,
     Stage3Result,
 )
-from app.core.stage2_reachability import evaluate_reachability, get_corridor_waypoints
+from app.core.stage2_reachability import evaluate_reachability, get_corridor_waypoints, is_peninsular
 from app.data.malaysia_network import (
     haversine_distance_km,
     MARITIME_PENANG_TO_KUCHING_WAYPOINTS,
@@ -143,10 +143,11 @@ class ResidualNetwork:
         """Executes Edmonds-Karp maximum flow algorithm and records step-by-step trace."""
         def make_snapshot(active_path_edges: set[str]) -> list[GraphEdgeSnapshot]:
             snapshots: list[GraphEdgeSnapshot] = []
-            for edge, meta in tracked_edges:
+            for edge_idx, (edge, meta) in enumerate(tracked_edges):
                 u_key = id_to_key[edge.u]
                 v_key = id_to_key[edge.v]
-                e_id = f"{u_key}->{v_key}"
+                e_id = f"{u_key}->{v_key}#{edge_idx}"
+                base_key = f"{u_key}->{v_key}"
                 snapshots.append(
                     GraphEdgeSnapshot(
                         edge_id=e_id,
@@ -157,7 +158,7 @@ class ResidualNetwork:
                         lower_bound=edge.lower_bound,
                         residual_forward=edge.residual_capacity,
                         residual_backward=edge.rev.residual_capacity if edge.rev else 0,
-                        in_augmenting_path=e_id in active_path_edges,
+                        in_augmenting_path=base_key in active_path_edges or e_id in active_path_edges,
                         edge_type=meta.get("type", "STANDARD"),
                     )
                 )
@@ -356,6 +357,13 @@ def solve_network_flow(
                     dep_airport = next((a for a in warehouses if a.is_airport and node_to_comp.get(a.warehouse_id) == w_comp), None)
                     arr_airport = next((a for a in warehouses if a.is_airport and node_to_comp.get(a.warehouse_id) == s_comp), None)
 
+                    # Shared vessel and aircraft slot capacity partitioning across commodities
+                    cross_strait_demand_p = sum(st.requests.get(pid, 0) for st in stores if node_to_comp.get(1000 + st.store_id) == s_comp)
+                    total_cross_strait_demand = sum(sum(st.requests.values()) for st in stores if node_to_comp.get(1000 + st.store_id) == s_comp)
+                    ratio = (cross_strait_demand_p / total_cross_strait_demand) if total_cross_strait_demand > 0 else 1.0
+                    sea_slot_cap = max(10, int(100 * ratio)) if total_cross_strait_demand > 0 else 100
+                    air_slot_cap = max(10, int(80 * ratio)) if total_cross_strait_demand > 0 else 80
+
                     if dep_port and arr_port:
                         port_dep_node = f"PORT_DEP_{dep_port.warehouse_id}_PROD_{pid}"
                         port_arr_node = f"PORT_ARR_{arr_port.warehouse_id}_PROD_{pid}"
@@ -370,7 +378,7 @@ def solve_network_flow(
                         raw_edges.append((
                             port_dep_node,
                             port_arr_node,
-                            100,  # Regional feeder container vessel slot limit
+                            sea_slot_cap,  # Shared feeder container vessel slot limit
                             0,
                             {
                                 "type": "TRANSPORT_MARITIME",
@@ -404,7 +412,7 @@ def solve_network_flow(
                         raw_edges.append((
                             air_dep_node,
                             air_arr_node,
-                            80,  # Regional air cargo container / pallet capacity
+                            air_slot_cap,  # Shared air cargo container / pallet capacity
                             0,
                             {
                                 "type": "TRANSPORT_AIR",
@@ -524,10 +532,16 @@ def solve_network_flow(
                 },
             )
 
+    # Extract all active product IDs dynamically across warehouses and stores
+    all_pids = sorted(
+        set(str(k) for w in warehouses for k in w.inventory.keys())
+        | set(str(k) for s in stores for k in s.requests.keys())
+    )
+
     # Port Gateways
     for dep_port in warehouses:
         if dep_port.is_port:
-            for pid in ["0", "1", "2"]:
+            for pid in all_pids:
                 dep_key = f"PORT_DEP_{dep_port.warehouse_id}_PROD_{pid}"
                 arr_key = f"PORT_ARR_{dep_port.warehouse_id}_PROD_{pid}"
                 if any(u == dep_key or v == dep_key for u, v, _, _, _ in raw_edges):
@@ -552,7 +566,7 @@ def solve_network_flow(
     # Airport Cargo Gateways
     for dep_air in warehouses:
         if dep_air.is_airport:
-            for pid in ["0", "1", "2"]:
+            for pid in all_pids:
                 dep_key = f"AIR_DEP_{dep_air.warehouse_id}_PROD_{pid}"
                 arr_key = f"AIR_ARR_{dep_air.warehouse_id}_PROD_{pid}"
                 if any(u == dep_key or v == dep_key for u, v, _, _, _ in raw_edges):
@@ -786,13 +800,14 @@ def solve_network_flow(
                 shortfall = req_qty - delivered
                 s_comp = node_to_comp.get(1000 + s.store_id)
 
-                # Trace supply depletion across reachable warehouses
+                # Trace supply depletion across reachable warehouses (land, sea, and air gateways)
                 reachable_whs = [
                     w for w in warehouses
                     if pid in w.inventory and (
-                        node_to_comp.get(w.warehouse_id) == s_comp or
-                        w.is_port or
-                        any(p.is_port for p in warehouses if node_to_comp.get(p.warehouse_id) == node_to_comp.get(w.warehouse_id))
+                        node_to_comp.get(w.warehouse_id) == s_comp
+                        or w.is_port
+                        or w.is_airport
+                        or any((p.is_port or p.is_airport) for p in warehouses if node_to_comp.get(p.warehouse_id) == node_to_comp.get(w.warehouse_id))
                     )
                 ]
 
@@ -811,11 +826,18 @@ def solve_network_flow(
                         f"is {total_reachable_supply} units, which cannot satisfy Store S{s.store_id} ({s.name}) request of {req_qty} units. "
                         f"Shortfall = {shortfall} units. All contributing warehouse stocks are 100% depleted."
                     )
+                elif any(not is_peninsular(st_map[s.store_id].longitude) != is_peninsular(wh_map[w.warehouse_id].longitude) for w in reachable_whs):
+                    b_type = BottleneckType.VESSEL_SLOT_EXHAUSTION
+                    explanation = (
+                        f"Transshipment Vessel Slot Exhaustion: Product P{pid} has warehouse inventory ({total_reachable_supply} units available), "
+                        f"but shared cross-strait feeder container vessel slots or air cargo payload limits capped allocation to Store S{s.store_id} ({s.name}). "
+                        f"Shortfall = {shortfall} units."
+                    )
                 else:
                     b_type = BottleneckType.CORRIDOR_SATURATION
                     explanation = (
                         f"Corridor Throughput Saturation: Product P{pid} has warehouse stock, but transport throughput caps "
-                        f"or port fairway limits prevented routing {shortfall} units to Store S{s.store_id} ({s.name})."
+                        f"prevented routing {shortfall} units to Store S{s.store_id} ({s.name})."
                     )
 
                 b_detail = BottleneckDetail(

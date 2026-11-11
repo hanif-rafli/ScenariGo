@@ -1,13 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Header } from './components/Header';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Header, AppView } from './components/Header';
 import { MapView } from './components/MapView';
-import { ScenarioControls } from './components/ScenarioControls';
 import { FeasibilityPanel } from './components/FeasibilityPanel';
 import { ReachabilityPanel } from './components/ReachabilityPanel';
 import { FlowPanel } from './components/FlowPanel';
 import { FleetPanel } from './components/FleetPanel';
-import { ManageFleet } from './pages/ManageFleet';
 import { GraphView } from './pages/GraphView';
+import { DashboardPage } from './pages/DashboardPage';
+import { OrganizationPage } from './pages/OrganizationPage';
 import {
   SimulationRequest,
   Stage1Result,
@@ -16,22 +16,29 @@ import {
   Stage4Result,
   AllocationItem,
   TruckInstance,
+  ScenarioSummary,
 } from './types/simulation';
 import {
   checkBackendHealth,
   fetchBobStationeryPreset,
-  fetchDeficitPreset,
-  fetchAirFreightPreset,
-  fetchTriPortPreset,
   evaluateFeasibility,
   evaluateReachability,
   evaluateNetworkFlow,
   evaluateFleetRouting,
   fetchTruckFleet,
+  fetchScenariosList,
+  fetchActiveScenario,
+  fetchScenarioById,
+  activateScenario,
+  resetPresetScenario,
+  updateScenario,
 } from './services/api';
 
 const FALLBACK_BASELINE: SimulationRequest = {
+  scenario_id: 'bob-stationery',
   scenario_name: "Bob's Stationery Enterprise Baseline (Local)",
+  is_preset: true,
+  is_modified: false,
   warehouses: [
     {
       warehouse_id: 0,
@@ -82,16 +89,25 @@ const FALLBACK_BASELINE: SimulationRequest = {
     },
   ],
   budget_cap_myr: 7000,
+  products: [
+    { product_id: '0', name: 'Premium Paper Cartons (A4)', sku: 'P0-PAPER-A4', category: 'Office Supplies', unit_weight_kg: 15.0, low_stock_threshold: 20 },
+    { product_id: '1', name: 'Commercial Ink Cartridges', sku: 'P1-INK-CART', category: 'Office Supplies', unit_weight_kg: 2.5, low_stock_threshold: 15 },
+    { product_id: '2', name: 'Archive Filing Cabinets', sku: 'P2-ARCH-CAB', category: 'Storage & Hardware', unit_weight_kg: 35.0, low_stock_threshold: 10 },
+  ],
 };
 
 export function App() {
   const [scenario, setScenario] = useState<SimulationRequest>(FALLBACK_BASELINE);
+  const [scenariosList, setScenariosList] = useState<ScenarioSummary[]>([]);
   const [feasibilityResult, setFeasibilityResult] = useState<Stage1Result | null>(null);
   const [reachabilityResult, setReachabilityResult] = useState<Stage2Result | null>(null);
   const [flowResult, setFlowResult] = useState<Stage3Result | null>(null);
   const [stage4Result, setStage4Result] = useState<Stage4Result | null>(null);
   const [fleet, setFleet] = useState<TruckInstance[]>([]);
-  const [activeView, setActiveView] = useState<'simulator' | 'fleet' | 'graph'>('simulator');
+  const fleetRef = useRef<TruckInstance[]>([]);
+  fleetRef.current = fleet;
+
+  const [activeView, setActiveView] = useState<AppView>('dashboard');
   const [selectedAllocation, setSelectedAllocation] = useState<AllocationItem | null>(null);
   const [panTarget, setPanTarget] = useState<[number, number] | null>(null);
   const [activeStageTab, setActiveStageTab] = useState<'stage1' | 'stage2' | 'stage3' | 'stage4'>('stage4');
@@ -108,10 +124,19 @@ export function App() {
     );
     if (store) {
       setPanTarget([store.latitude, store.longitude]);
+      setActiveView('simulator');
     }
   };
 
-  const runEvaluation = useCallback(async (targetScenario: SimulationRequest) => {
+  const handleSelectWarehouse = (warehouseId: number) => {
+    const warehouse = scenario.warehouses.find((w) => w.warehouse_id === warehouseId);
+    if (warehouse) {
+      setPanTarget([warehouse.latitude, warehouse.longitude]);
+      setActiveView('simulator');
+    }
+  };
+
+  const runEvaluation = useCallback(async (targetScenario: SimulationRequest, currentFleet?: TruckInstance[]) => {
     setLoading(true);
     try {
       // 1. Stage 1 Global Feasibility Check
@@ -127,10 +152,23 @@ export function App() {
       setFlowResult(stage3);
 
       // 4. Stage 4 Fleet Routing, Range Checking & Budget Pacing
-      const stage4 = await evaluateFleetRouting(targetScenario);
+      const activeFleet =
+        currentFleet ??
+        targetScenario.custom_fleet ??
+        (fleetRef.current.length > 0 ? fleetRef.current : undefined);
+      const fleetScenario: SimulationRequest = {
+        ...targetScenario,
+        custom_fleet: activeFleet,
+      };
+      const stage4 = await evaluateFleetRouting(fleetScenario);
       setStage4Result(stage4);
       if (stage4.available_trucks && stage4.available_trucks.length > 0) {
-        setFleet(stage4.available_trucks);
+        setFleet((prev) => {
+          const customTrucks = prev.filter((t) => t.is_custom);
+          const returnedIds = new Set(stage4.available_trucks.map((t) => t.truck_id));
+          const missingCustom = customTrucks.filter((t) => !returnedIds.has(t.truck_id));
+          return [...stage4.available_trucks, ...missingCustom];
+        });
       }
     } catch (err) {
       console.warn('Backend evaluation failed, evaluating locally in frontend:', err);
@@ -194,6 +232,7 @@ export function App() {
     }
   }, []);
 
+  // Initialization: check backend health and load active scenario from SQLite
   useEffect(() => {
     async function init() {
       const isOnline = await checkBackendHealth();
@@ -201,13 +240,17 @@ export function App() {
 
       if (isOnline) {
         try {
-          const [baseline, initialFleet] = await Promise.all([
-            fetchBobStationeryPreset(),
-            fetchTruckFleet(),
+          const [summaries, activeScen, initialFleet] = await Promise.all([
+            fetchScenariosList(),
+            fetchActiveScenario().catch(() => fetchBobStationeryPreset()),
+            fetchTruckFleet().catch(() => []),
           ]);
-          setScenario(baseline);
-          setFleet(initialFleet);
-          await runEvaluation(baseline);
+          setScenariosList(summaries);
+          setScenario(activeScen);
+          if (initialFleet && initialFleet.length > 0) {
+            setFleet(initialFleet);
+          }
+          await runEvaluation(activeScen, initialFleet);
           return;
         } catch (e) {
           console.error('Failed to fetch initial preset:', e);
@@ -220,169 +263,204 @@ export function App() {
     init();
   }, [runEvaluation]);
 
-  const handleSelectPreset = async (presetType: 'bob' | 'deficit' | 'air' | 'tri-port') => {
+  // Scenario Activation (from Organization sub-tabs or Presets)
+  const handleSelectScenario = async (scenarioId: string) => {
     setLoading(true);
     try {
-      let targetScenario: SimulationRequest;
+      let target: SimulationRequest;
       if (backendOnline) {
-        if (presetType === 'bob') {
-          targetScenario = await fetchBobStationeryPreset();
-        } else if (presetType === 'deficit') {
-          targetScenario = await fetchDeficitPreset();
-        } else if (presetType === 'air') {
-          targetScenario = await fetchAirFreightPreset();
-        } else {
-          targetScenario = await fetchTriPortPreset();
-        }
+        target = await activateScenario(scenarioId);
+        const summaries = await fetchScenariosList();
+        setScenariosList(summaries);
       } else {
-        targetScenario = JSON.parse(JSON.stringify(FALLBACK_BASELINE));
-        if (presetType === 'deficit') {
-          targetScenario.scenario_name = 'East Malaysia Stockout Deficit (Offline)';
-          targetScenario.stores[2].requests['1'] = 50;
-        } else if (presetType === 'air') {
-          targetScenario.scenario_name = 'Expedited Air Freight Transshipment (Offline)';
-          targetScenario.warehouses[0].name = 'Kuala Lumpur Hub (KLIA Air Cargo)';
-          targetScenario.warehouses[0].latitude = 2.7456;
-          targetScenario.warehouses[0].longitude = 101.7072;
-          targetScenario.warehouses[0].is_airport = true;
-          targetScenario.warehouses[0].is_port = false;
-          targetScenario.warehouses[2].name = 'Kuching Air Cargo Hub';
-          targetScenario.warehouses[2].latitude = 1.4847;
-          targetScenario.warehouses[2].longitude = 110.3472;
-          targetScenario.warehouses[2].is_airport = true;
-          targetScenario.warehouses[2].is_port = false;
-          targetScenario.budget_cap_myr = 9500;
-        } else if (presetType === 'tri-port') {
-          targetScenario.scenario_name = 'Tri-Port Multi-Gateway Peninsular Logistics (Offline)';
-          targetScenario.warehouses = [
-            {
-              warehouse_id: 0,
-              name: 'Kuala Lumpur Hub',
-              latitude: 3.139,
-              longitude: 101.6869,
-              is_port: false,
-              inventory: { '0': 40, '1': 30 },
-            },
-            {
-              warehouse_id: 1,
-              name: 'Butterworth Logistics Depot',
-              latitude: 5.412,
-              longitude: 100.37,
-              is_port: true,
-              inventory: { '0': 20, '2': 40 },
-            },
-            {
-              warehouse_id: 2,
-              name: 'Kuching Transshipment Port',
-              latitude: 1.5533,
-              longitude: 110.3592,
-              is_port: true,
-              inventory: { '1': 15 },
-            },
-            {
-              warehouse_id: 3,
-              name: 'Port Klang Gateway',
-              latitude: 2.9985,
-              longitude: 101.3928,
-              is_port: true,
-              inventory: { '0': 30, '1': 20 },
-            },
-            {
-              warehouse_id: 4,
-              name: 'Port of Tanjung Pelepas (PTP Johor)',
-              latitude: 1.362,
-              longitude: 103.551,
-              is_port: true,
-              inventory: { '0': 25, '1': 20, '2': 20 },
-            },
-          ];
-          targetScenario.stores = [
-            {
-              store_id: 0,
-              name: 'Shah Alam Retail',
-              latitude: 3.0738,
-              longitude: 101.5183,
-              requests: { '0': 25, '1': 10 },
-            },
-            {
-              store_id: 1,
-              name: 'Ipoh Supermarket',
-              latitude: 4.5975,
-              longitude: 101.0901,
-              requests: { '0': 15 },
-            },
-            {
-              store_id: 2,
-              name: 'Kuching Central Mall',
-              latitude: 1.53,
-              longitude: 110.34,
-              requests: { '1': 20, '2': 10 },
-            },
-            {
-              store_id: 3,
-              name: 'Johor Bahru Retail',
-              latitude: 1.4927,
-              longitude: 103.7414,
-              requests: { '0': 20, '2': 15 },
-            },
-          ];
-          targetScenario.budget_cap_myr = 12000;
-        }
+        target = await fetchScenarioById(scenarioId);
       }
-
-      setScenario(targetScenario);
-      await runEvaluation(targetScenario);
+      setScenario(target);
+      await runEvaluation(target, fleet);
     } catch (err) {
-      console.error('Error changing preset:', err);
+      console.error('Error activating scenario:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCustomScenarioLoaded = async (custom: SimulationRequest) => {
-    setScenario(custom);
-    await runEvaluation(custom);
+  // Factory Reset
+  const handleResetScenario = async (scenarioId: string) => {
+    setLoading(true);
+    try {
+      let target: SimulationRequest;
+      if (backendOnline) {
+        target = await resetPresetScenario(scenarioId);
+        const summaries = await fetchScenariosList();
+        setScenariosList(summaries);
+      } else {
+        target = JSON.parse(JSON.stringify(FALLBACK_BASELINE));
+      }
+      setScenario(target);
+      await runEvaluation(target, fleet);
+    } catch (err) {
+      console.error('Error resetting scenario:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Save changes (Warehouses, Stores, Products, Settings)
+  const handleSaveScenario = async (updated: SimulationRequest) => {
+    setLoading(true);
+    try {
+      let saved: SimulationRequest;
+      const targetId = updated.scenario_id || 'bob-stationery';
+      if (backendOnline) {
+        saved = await updateScenario(targetId, updated);
+        const summaries = await fetchScenariosList();
+        setScenariosList(summaries);
+      } else {
+        saved = updated;
+        localStorage.setItem(`scenarigo_scenario_${targetId}`, JSON.stringify(saved));
+      }
+      setScenario(saved);
+      await runEvaluation(saved, fleet);
+    } catch (err) {
+      console.error('Error saving scenario:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fleet management
+  const handleAddTruck = (newTruck: TruckInstance) => {
+    const updated = [...fleet, newTruck];
+    setFleet(updated);
+    const fleetScenario: SimulationRequest = {
+      ...scenario,
+      custom_fleet: updated,
+    };
+    evaluateFleetRouting(fleetScenario)
+      .then((res) => setStage4Result(res))
+      .catch((err) => console.warn('Failed to re-evaluate fleet with new truck:', err));
+  };
+
+  const handleDeleteTruck = (truckId: string) => {
+    const updated = fleet.filter((t) => t.truck_id !== truckId);
+    setFleet(updated);
+    const fleetScenario: SimulationRequest = {
+      ...scenario,
+      custom_fleet: updated,
+    };
+    evaluateFleetRouting(fleetScenario)
+      .then((res) => setStage4Result(res))
+      .catch((err) => console.warn('Failed to re-evaluate fleet after truck deletion:', err));
   };
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col font-mono selection:bg-white selection:text-black">
       <Header
-        backendOnline={backendOnline}
         activeScenarioName={scenario.scenario_name}
+        isModified={scenario.is_modified}
         activeView={activeView}
         onChangeView={setActiveView}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
-        {activeView === 'fleet' ? (
-          <ManageFleet
+        {/* VIEW 1: DASHBOARD VIEW */}
+        {activeView === 'dashboard' && (
+          <DashboardPage
+            scenario={scenario}
+            flowResult={flowResult}
+            stage4Result={stage4Result}
+            fleet={fleet}
+            onSelectStore={handleSelectStore}
+            onSelectWarehouse={handleSelectWarehouse}
+          />
+        )}
+
+        {/* VIEW 2: ORGANIZATION VIEW */}
+        {activeView === 'organization' && (
+          <OrganizationPage
+            scenario={scenario}
+            scenariosList={scenariosList}
             fleet={fleet}
             itineraries={stage4Result?.itineraries ?? []}
-            onAddTruck={(newTruck) => setFleet((prev) => [...prev, newTruck])}
+            onSelectScenario={handleSelectScenario}
+            onResetScenario={handleResetScenario}
+            onSaveScenario={handleSaveScenario}
+            onAddTruck={handleAddTruck}
+            onDeleteTruck={handleDeleteTruck}
+            onCustomScenarioLoaded={handleSaveScenario}
+            loading={loading}
           />
-        ) : activeView === 'graph' ? (
+        )}
+
+        {/* VIEW 3: GRAPH VIEW */}
+        {activeView === 'graph' && (
           <GraphView
             circulationTrace={flowResult?.graph_trace}
             bipartiteTrace={stage4Result?.graph_trace}
             loading={loading}
           />
-        ) : (
+        )}
+
+        {/* VIEW 4: SIMULATOR VIEW */}
+        {activeView === 'simulator' && (
           <>
-            <ScenarioControls
-              currentScenario={scenario}
-              onSelectPreset={handleSelectPreset}
-              onRunFeasibility={() => runEvaluation(scenario)}
-              onCustomScenarioLoaded={handleCustomScenarioLoaded}
-              loading={loading}
-            />
+            {/* Compact Execution Status Bar */}
+            <div className="bg-neutral-950 p-3.5 border border-neutral-800 flex flex-wrap items-center justify-between gap-3 font-mono text-xs">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center space-x-2">
+                  <span className="text-neutral-500 text-[10px] uppercase tracking-wider">
+                    Active Scenario:
+                  </span>
+                  <span className="font-bold text-white">{scenario.scenario_name}</span>
+                  {scenario.is_modified && (
+                    <span className="px-1.5 py-0.5 bg-amber-950 text-amber-300 border border-amber-800 text-[9px] font-bold">
+                      [MODIFIED]
+                    </span>
+                  )}
+                </div>
+                <div className="h-3.5 w-px bg-neutral-800 hidden sm:block" />
+                <div className="flex items-center space-x-3 text-neutral-400 text-[11px]">
+                  <span>
+                    <strong className="text-white">{scenario.warehouses.length}</strong> Warehouses
+                  </span>
+                  <span>
+                    <strong className="text-white">{scenario.stores.length}</strong> Stores
+                  </span>
+                  <span>
+                    Budget:{' '}
+                    <strong className="text-white">
+                      MYR {scenario.budget_cap_myr?.toLocaleString() ?? '7,000'}
+                    </strong>
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveView('organization')}
+                  className="px-3 py-1.5 bg-neutral-900 hover:bg-white hover:text-black border border-neutral-700 text-neutral-200 text-xs font-bold transition-colors cursor-pointer"
+                >
+                  [CONFIGURE IN ORGANIZATION &rarr;]
+                </button>
+                <button
+                  type="button"
+                  onClick={() => runEvaluation(scenario, fleet)}
+                  disabled={loading}
+                  className="px-4 py-1.5 bg-white hover:bg-neutral-200 disabled:bg-neutral-800 text-black disabled:text-neutral-500 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                >
+                  {loading ? 'Evaluating...' : 'Run Engine'}
+                </button>
+              </div>
+            </div>
 
             {/* STACKED SIMULATOR LAYOUT: Map First (Full Width), then Stages Below */}
             <div className="space-y-6">
-              {/* 1. Map View (Stacked on top) */}
+              {/* 1. Map View */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs uppercase tracking-wider text-white">
+                <div className="flex items-center justify-between text-xs uppercase tracking-wider text-neutral-400">
                   <span>Multi-Modal Network Topology</span>
-                  <span className="font-bold">
+                  <span className="font-bold text-white">
                     {reachabilityResult ? `${reachabilityResult.edges.length} Edges Active` : 'Topological Map'}
                   </span>
                 </div>
@@ -467,11 +545,11 @@ export function App() {
                           product_id: itin.product_id,
                           quantity: itin.quantity_units,
                           modality: 0,
-                          route_type: 'DIRECT_HIGHWAY' as any,
+                          route_type: 'DIRECT_HIGHWAY',
                           distance_km: itin.total_distance_km,
                           transit_hours: itin.total_transit_hours,
                           path_coordinates: coords.length > 0 ? coords : undefined,
-                          status: 'ALLOCATED' as any,
+                          status: 'ALLOCATED',
                         });
                       } else {
                         setSelectedAllocation(null);
@@ -503,7 +581,7 @@ export function App() {
         )}
       </main>
 
-      <footer className="border-t border-neutral-900 py-4 px-6 text-center text-xs text-white font-mono">
+      <footer className="border-t border-neutral-900 py-4 px-6 text-center text-xs text-neutral-500 font-mono">
         ScenariGo Simulation Engine | Discrete Optimization & Multi-Modal Logistics
       </footer>
     </div>
