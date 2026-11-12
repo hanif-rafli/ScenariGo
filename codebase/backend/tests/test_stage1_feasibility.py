@@ -1,5 +1,5 @@
 from app.core.stage1_feasibility import check_global_feasibility
-from app.models.entities import Warehouse, Store
+from app.models.entities import Store, Warehouse
 from app.models.responses import FeasibilityStatus, SimulationRequest
 
 

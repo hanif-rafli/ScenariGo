@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException
-from app.models.responses import SimulationRequest
-from app.models.fleet import Stage4Result, TruckInstance
+
 from app.core.stage3_network_flow import solve_network_flow
-from app.core.stage4_fleet_routing import solve_fleet_routing, get_default_fleet
+from app.core.stage4_fleet_routing import get_default_fleet, solve_fleet_routing
+from app.models.fleet import Stage4Result, TruckInstance
+from app.models.responses import SimulationRequest
 
 router = APIRouter()
 
@@ -25,8 +26,10 @@ async def evaluate_fleet_routing(request: SimulationRequest) -> Stage4Result:
 
         # 2. Run Stage 4 Fleet Routing & Budget Pacing
         econ_params = request.fleet.economic_parameters if request.fleet else None
-        budget_cap = request.budget_cap_myr if request.budget_cap_myr is not None else (
-            econ_params.default_budget_cap_myr if econ_params else 7000.0
+        budget_cap = (
+            request.budget_cap_myr
+            if request.budget_cap_myr is not None
+            else (econ_params.default_budget_cap_myr if econ_params else 7000.0)
         )
         stage4_res = solve_fleet_routing(
             allocations=flow_res.allocations,
@@ -39,4 +42,4 @@ async def evaluate_fleet_routing(request: SimulationRequest) -> Stage4Result:
         )
         return stage4_res
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Stage 4 Fleet Routing error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Stage 4 Fleet Routing error: {e!s}") from e

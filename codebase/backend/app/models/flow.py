@@ -1,6 +1,7 @@
-from typing import Optional
 from enum import Enum
+
 from pydantic import BaseModel, Field
+
 from app.models.graph import Modality
 from app.models.graph_trace import NetworkFlowGraphTrace
 
@@ -25,6 +26,7 @@ class BottleneckType(str, Enum):
 
 class BottleneckDetail(BaseModel):
     """Granular causal traceability for an unfulfilled demand bottleneck."""
+
     bottleneck_id: str
     product_id: str
     store_id: int
@@ -39,6 +41,7 @@ class BottleneckDetail(BaseModel):
 
 class AllocationItem(BaseModel):
     """Represents a discrete commodity shipment from a warehouse to a store."""
+
     allocation_id: str
     source_id: int
     source_name: str
@@ -58,6 +61,7 @@ class AllocationItem(BaseModel):
 
 class FlowEdgeUtilization(BaseModel):
     """Reports throughput utilization across critical highway and maritime logistics corridors."""
+
     corridor_name: str
     modality: Modality
     capacity_units: int
@@ -68,6 +72,7 @@ class FlowEdgeUtilization(BaseModel):
 
 class Stage3Result(BaseModel):
     """Result of Stage 3 Multi-Commodity Network Flow (Ford-Fulkerson circulation with bounds)."""
+
     is_flow_feasible: bool
     total_demand_satisfied: int
     total_demand_requested: int
@@ -78,4 +83,4 @@ class Stage3Result(BaseModel):
     bottleneck_details: list[BottleneckDetail] = Field(default_factory=list)
     tokens: list[str] = Field(default_factory=list)
     summary: str
-    graph_trace: Optional[NetworkFlowGraphTrace] = None
+    graph_trace: NetworkFlowGraphTrace | None = None

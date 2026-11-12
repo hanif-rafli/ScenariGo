@@ -3,6 +3,7 @@
 Positions real PLUS Expressway (E1/AH2, E2) service stations with verified
 GPS coordinates along major freight transport corridors.
 """
+
 from typing import TypedDict
 
 
@@ -76,6 +77,7 @@ PLUS_RR_STATIONS: list[RRStation] = [
 
 def find_nearest_rr_station(lat: float, lon: float) -> RRStation:
     """Find the closest highway R&R station using Euclidean distance."""
+
     def dist_sq(st: RRStation) -> float:
         return (st["latitude"] - lat) ** 2 + (st["longitude"] - lon) ** 2
 

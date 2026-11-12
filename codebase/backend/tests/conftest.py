@@ -1,7 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
-from app.main import app
+
 from app.data.presets import get_bobs_stationery_preset, get_deficit_preset
+from app.main import app
 from app.models.responses import SimulationRequest
 
 

@@ -2,12 +2,13 @@
 
 import pytest
 from fastapi.testclient import TestClient
-from app.main import app
-from app.data.presets import get_tri_port_preset
+
 from app.core.stage1_feasibility import check_global_feasibility
 from app.core.stage2_reachability import evaluate_reachability, get_corridor_waypoints
 from app.core.stage3_network_flow import solve_network_flow
 from app.core.stage4_fleet_routing import solve_fleet_routing
+from app.data.presets import get_tri_port_preset
+from app.main import app
 from app.models.graph import Modality
 
 
@@ -20,7 +21,9 @@ def test_corridor_butterworth_nbct():
     """Verifies highway and maritime corridor resolution for Butterworth NBCT."""
     c_bw = (5.4120, 100.3700)
     c_ipoh = (4.5975, 101.0901)
-    pts, dist, mod = get_corridor_waypoints("Butterworth Logistics Depot", "Ipoh Supermarket", c_bw, c_ipoh)
+    pts, dist, mod = get_corridor_waypoints(
+        "Butterworth Logistics Depot", "Ipoh Supermarket", c_bw, c_ipoh
+    )
     assert mod == Modality.LAND
     assert dist == 153.2
     assert len(pts) > 10
@@ -39,7 +42,9 @@ def test_corridor_port_klang():
 
     # Maritime fairway to Kuching
     c_kch = (1.5533, 110.3592)
-    pts_sea, dist_sea, mod_sea = get_corridor_waypoints("Port Klang Gateway", "Kuching Transshipment Port", c_klang, c_kch)
+    pts_sea, dist_sea, mod_sea = get_corridor_waypoints(
+        "Port Klang Gateway", "Kuching Transshipment Port", c_klang, c_kch
+    )
     assert mod_sea == Modality.MARITIME
     assert dist_sea == 1320.0
     assert len(pts_sea) > 15
@@ -49,7 +54,9 @@ def test_corridor_ptp_johor():
     """Verifies highway and maritime corridor resolution for Port of Tanjung Pelepas."""
     c_ptp = (1.3620, 103.5510)
     c_jb = (1.4927, 103.7414)
-    pts, dist, mod = get_corridor_waypoints("Port of Tanjung Pelepas", "Johor Bahru Retail", c_ptp, c_jb)
+    pts, dist, mod = get_corridor_waypoints(
+        "Port of Tanjung Pelepas", "Johor Bahru Retail", c_ptp, c_jb
+    )
     assert mod == Modality.LAND
     assert dist == 28.5
     assert len(pts) == 5
@@ -57,7 +64,9 @@ def test_corridor_ptp_johor():
 
     # Maritime fairway to Kuching (840 km deepwater fairway clearing Tanjung Datu at >= 2.42N)
     c_kch = (1.5533, 110.3592)
-    pts_sea, dist_sea, mod_sea = get_corridor_waypoints("Port of Tanjung Pelepas (PTP Johor)", "Kuching Transshipment Port", c_ptp, c_kch)
+    pts_sea, dist_sea, mod_sea = get_corridor_waypoints(
+        "Port of Tanjung Pelepas (PTP Johor)", "Kuching Transshipment Port", c_ptp, c_kch
+    )
     assert mod_sea == Modality.MARITIME
     assert dist_sea == 840.0
     assert any(lat >= 2.40 for lat, lon in pts_sea)

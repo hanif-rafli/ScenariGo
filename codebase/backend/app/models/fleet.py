@@ -1,6 +1,7 @@
 from enum import Enum
-from typing import Optional
+
 from pydantic import BaseModel, Field
+
 from app.models.graph_trace import NetworkFlowGraphTrace
 
 
@@ -65,7 +66,7 @@ class TruckInstance(BaseModel):
     fuel_tank_capacity_l: float = Field(gt=0)
     current_location_name: str
     current_coords: tuple[float, float]
-    assigned_allocation_id: Optional[str] = None
+    assigned_allocation_id: str | None = None
     is_assigned: bool = False
     is_custom: bool = False
 
@@ -84,4 +85,4 @@ class Stage4Result(BaseModel):
     available_trucks: list[TruckInstance] = Field(default_factory=list)
     tokens: list[str] = Field(default_factory=list)
     summary: str
-    graph_trace: Optional[NetworkFlowGraphTrace] = None
+    graph_trace: NetworkFlowGraphTrace | None = None

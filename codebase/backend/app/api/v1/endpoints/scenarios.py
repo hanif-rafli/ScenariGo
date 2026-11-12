@@ -1,17 +1,18 @@
 """API endpoints for Scenario and Master Organization persistence."""
 
 from fastapi import APIRouter, HTTPException, status
-from app.models.responses import SimulationRequest, ScenarioSummary
+
 from app.db.database import (
-    list_scenarios,
-    get_scenario,
-    get_active_scenario,
-    create_scenario,
-    update_scenario,
     activate_scenario,
-    reset_preset_scenario,
+    create_scenario,
     delete_scenario,
+    get_active_scenario,
+    get_scenario,
+    list_scenarios,
+    reset_preset_scenario,
+    update_scenario,
 )
+from app.models.responses import ScenarioSummary, SimulationRequest
 
 router = APIRouter()
 
@@ -45,7 +46,9 @@ def get_current_active_scenario() -> SimulationRequest:
 def get_single_scenario(scenario_id: str) -> SimulationRequest:
     scen = get_scenario(scenario_id)
     if not scen:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Scenario '{scenario_id}' not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Scenario '{scenario_id}' not found."
+        )
     return scen
 
 
@@ -69,7 +72,9 @@ def post_new_scenario(scenario: SimulationRequest) -> SimulationRequest:
 def put_update_scenario(scenario_id: str, scenario: SimulationRequest) -> SimulationRequest:
     existing = get_scenario(scenario_id)
     if not existing:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Scenario '{scenario_id}' not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Scenario '{scenario_id}' not found."
+        )
     return update_scenario(scenario_id, scenario)
 
 
@@ -83,7 +88,7 @@ def post_activate_scenario(scenario_id: str) -> SimulationRequest:
     try:
         return activate_scenario(scenario_id)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.post(
@@ -96,7 +101,7 @@ def post_reset_preset(scenario_id: str) -> SimulationRequest:
     try:
         return reset_preset_scenario(scenario_id)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.delete(
@@ -109,6 +114,8 @@ def delete_single_scenario(scenario_id: str):
     try:
         deleted = delete_scenario(scenario_id)
         if not deleted:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Scenario '{scenario_id}' not found.")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=f"Scenario '{scenario_id}' not found."
+            )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e

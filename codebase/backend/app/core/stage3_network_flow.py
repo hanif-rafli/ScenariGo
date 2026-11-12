@@ -5,30 +5,34 @@ Solves the exact multi-echelon inventory allocation matrix across Peninsular and
 enforcing non-negotiable retail store requests as lower bounds [L, C] and identifying transport bottlenecks.
 """
 
-from collections import deque, defaultdict
+from collections import defaultdict, deque
 from typing import Any
-from app.models.entities import Warehouse, Store
-from app.models.graph import Modality
-from app.models.graph_trace import (
-    GraphNode,
-    GraphEdgeSnapshot,
-    GraphIterationStep,
-    NetworkFlowGraphTrace,
+
+from app.core.stage2_reachability import (
+    evaluate_reachability,
+    get_corridor_waypoints,
+    is_peninsular,
 )
+from app.data.malaysia_network import (
+    AIR_KLIA_TO_KUCHING_WAYPOINTS,
+    haversine_distance_km,
+)
+from app.models.entities import Store, Warehouse
 from app.models.flow import (
-    AllocationStatus,
-    RouteType,
-    BottleneckType,
-    BottleneckDetail,
     AllocationItem,
+    AllocationStatus,
+    BottleneckDetail,
+    BottleneckType,
     FlowEdgeUtilization,
+    RouteType,
     Stage3Result,
 )
-from app.core.stage2_reachability import evaluate_reachability, get_corridor_waypoints, is_peninsular
-from app.data.malaysia_network import (
-    haversine_distance_km,
-    MARITIME_PENANG_TO_KUCHING_WAYPOINTS,
-    AIR_KLIA_TO_KUCHING_WAYPOINTS,
+from app.models.graph import Modality
+from app.models.graph_trace import (
+    GraphEdgeSnapshot,
+    GraphIterationStep,
+    GraphNode,
+    NetworkFlowGraphTrace,
 )
 
 
@@ -141,6 +145,7 @@ class ResidualNetwork:
         tracked_edges: list[tuple[FlowEdge, dict[str, Any]]],
     ) -> tuple[int, NetworkFlowGraphTrace]:
         """Executes Edmonds-Karp maximum flow algorithm and records step-by-step trace."""
+
         def make_snapshot(active_path_edges: set[str]) -> list[GraphEdgeSnapshot]:
             snapshots: list[GraphEdgeSnapshot] = []
             for edge_idx, (edge, meta) in enumerate(tracked_edges):
@@ -158,7 +163,8 @@ class ResidualNetwork:
                         lower_bound=edge.lower_bound,
                         residual_forward=edge.residual_capacity,
                         residual_backward=edge.rev.residual_capacity if edge.rev else 0,
-                        in_augmenting_path=base_key in active_path_edges or e_id in active_path_edges,
+                        in_augmenting_path=base_key in active_path_edges
+                        or e_id in active_path_edges,
                         edge_type=meta.get("type", "STANDARD"),
                     )
                 )
@@ -252,8 +258,8 @@ def solve_network_flow(
             node_indexer[key] = len(node_indexer)
         return node_indexer[key]
 
-    S_ORIG = get_node_id("ORIG_SOURCE")
-    T_ORIG = get_node_id("ORIG_SINK")
+    get_node_id("ORIG_SOURCE")
+    get_node_id("ORIG_SINK")
 
     # Raw demand edges to record for circulation reduction
     raw_edges: list[tuple[str, str, int, int, dict[str, Any]]] = []
@@ -264,24 +270,28 @@ def solve_network_flow(
     for w in warehouses:
         w_node = f"WH_{w.warehouse_id}"
         total_wh_stock = sum(w.inventory.values())
-        raw_edges.append((
-            "ORIG_SOURCE",
-            w_node,
-            total_wh_stock,
-            0,
-            {"type": "WH_INTAKE", "warehouse_id": w.warehouse_id},
-        ))
+        raw_edges.append(
+            (
+                "ORIG_SOURCE",
+                w_node,
+                total_wh_stock,
+                0,
+                {"type": "WH_INTAKE", "warehouse_id": w.warehouse_id},
+            )
+        )
 
         # Warehouse to Warehouse-Product Layer
         for pid, qty in w.inventory.items():
             wp_node = f"WH_{w.warehouse_id}_PROD_{pid}"
-            raw_edges.append((
-                w_node,
-                wp_node,
-                qty,
-                0,
-                {"type": "WH_STOCK", "warehouse_id": w.warehouse_id, "product_id": pid},
-            ))
+            raw_edges.append(
+                (
+                    w_node,
+                    wp_node,
+                    qty,
+                    0,
+                    {"type": "WH_STOCK", "warehouse_id": w.warehouse_id, "product_id": pid},
+                )
+            )
 
     # B. Stores and Store-Products
     for s in stores:
@@ -290,24 +300,33 @@ def solve_network_flow(
         total_demand_requested += total_st_demand
 
         # Store to Super-Sink
-        raw_edges.append((
-            s_node,
-            "ORIG_SINK",
-            total_st_demand,
-            0,
-            {"type": "STORE_OUTFLOW", "store_id": s.store_id},
-        ))
+        raw_edges.append(
+            (
+                s_node,
+                "ORIG_SINK",
+                total_st_demand,
+                0,
+                {"type": "STORE_OUTFLOW", "store_id": s.store_id},
+            )
+        )
 
         # Store-Product to Store with LOWER BOUND = REQUEST (Non-negotiable demand!)
         for pid, req in s.requests.items():
             sp_node = f"STORE_{s.store_id}_PROD_{pid}"
-            raw_edges.append((
-                sp_node,
-                s_node,
-                req,
-                req,  # Lower bound = exact store requirement!
-                {"type": "STORE_DEMAND_LB", "store_id": s.store_id, "product_id": pid, "req": req},
-            ))
+            raw_edges.append(
+                (
+                    sp_node,
+                    s_node,
+                    req,
+                    req,  # Lower bound = exact store requirement!
+                    {
+                        "type": "STORE_DEMAND_LB",
+                        "store_id": s.store_id,
+                        "product_id": pid,
+                        "req": req,
+                    },
+                )
+            )
 
             # Connect available warehouse supplies to this Store-Product node
             s_comp = node_to_comp.get(1000 + s.store_id)
@@ -321,116 +340,170 @@ def solve_network_flow(
 
                 if w_comp == s_comp:
                     # Same landmass: direct highway freight corridor
-                    raw_edges.append((
-                        wp_node,
-                        sp_node,
-                        min(w.inventory[pid], req),
-                        0,
-                        {
-                            "type": "TRANSPORT_LAND",
-                            "source_id": w.warehouse_id,
-                            "target_id": s.store_id,
-                            "product_id": pid,
-                            "modality": Modality.LAND,
-                        },
-                    ))
+                    raw_edges.append(
+                        (
+                            wp_node,
+                            sp_node,
+                            min(w.inventory[pid], req),
+                            0,
+                            {
+                                "type": "TRANSPORT_LAND",
+                                "source_id": w.warehouse_id,
+                                "target_id": s.store_id,
+                                "product_id": pid,
+                                "modality": Modality.LAND,
+                            },
+                        )
+                    )
                 else:
                     # Cross-island: Intermodal sea transport via port gateways or air freight via airports
-                    cand_dep_ports = [p for p in warehouses if p.is_port and node_to_comp.get(p.warehouse_id) == w_comp]
+                    cand_dep_ports = [
+                        p
+                        for p in warehouses
+                        if p.is_port and node_to_comp.get(p.warehouse_id) == w_comp
+                    ]
                     dep_port = (
                         min(
                             cand_dep_ports,
-                            key=lambda p: haversine_distance_km(w.latitude, w.longitude, p.latitude, p.longitude),
+                            key=lambda p: haversine_distance_km(
+                                w.latitude, w.longitude, p.latitude, p.longitude
+                            ),
                         )
                         if cand_dep_ports
                         else None
                     )
-                    cand_arr_ports = [p for p in warehouses if p.is_port and node_to_comp.get(p.warehouse_id) == s_comp]
+                    cand_arr_ports = [
+                        p
+                        for p in warehouses
+                        if p.is_port and node_to_comp.get(p.warehouse_id) == s_comp
+                    ]
                     arr_port = (
                         min(
                             cand_arr_ports,
-                            key=lambda p: haversine_distance_km(s.latitude, s.longitude, p.latitude, p.longitude),
+                            key=lambda p: haversine_distance_km(
+                                s.latitude, s.longitude, p.latitude, p.longitude
+                            ),
                         )
                         if cand_arr_ports
                         else None
                     )
-                    dep_airport = next((a for a in warehouses if a.is_airport and node_to_comp.get(a.warehouse_id) == w_comp), None)
-                    arr_airport = next((a for a in warehouses if a.is_airport and node_to_comp.get(a.warehouse_id) == s_comp), None)
+                    dep_airport = next(
+                        (
+                            a
+                            for a in warehouses
+                            if a.is_airport and node_to_comp.get(a.warehouse_id) == w_comp
+                        ),
+                        None,
+                    )
+                    arr_airport = next(
+                        (
+                            a
+                            for a in warehouses
+                            if a.is_airport and node_to_comp.get(a.warehouse_id) == s_comp
+                        ),
+                        None,
+                    )
 
                     # Shared vessel and aircraft slot capacity partitioning across commodities
-                    cross_strait_demand_p = sum(st.requests.get(pid, 0) for st in stores if node_to_comp.get(1000 + st.store_id) == s_comp)
-                    total_cross_strait_demand = sum(sum(st.requests.values()) for st in stores if node_to_comp.get(1000 + st.store_id) == s_comp)
-                    ratio = (cross_strait_demand_p / total_cross_strait_demand) if total_cross_strait_demand > 0 else 1.0
-                    sea_slot_cap = max(10, int(100 * ratio)) if total_cross_strait_demand > 0 else 100
+                    cross_strait_demand_p = sum(
+                        st.requests.get(pid, 0)
+                        for st in stores
+                        if node_to_comp.get(1000 + st.store_id) == s_comp
+                    )
+                    total_cross_strait_demand = sum(
+                        sum(st.requests.values())
+                        for st in stores
+                        if node_to_comp.get(1000 + st.store_id) == s_comp
+                    )
+                    ratio = (
+                        (cross_strait_demand_p / total_cross_strait_demand)
+                        if total_cross_strait_demand > 0
+                        else 1.0
+                    )
+                    sea_slot_cap = (
+                        max(10, int(100 * ratio)) if total_cross_strait_demand > 0 else 100
+                    )
                     air_slot_cap = max(10, int(80 * ratio)) if total_cross_strait_demand > 0 else 80
 
                     if dep_port and arr_port:
                         port_dep_node = f"PORT_DEP_{dep_port.warehouse_id}_PROD_{pid}"
                         port_arr_node = f"PORT_ARR_{arr_port.warehouse_id}_PROD_{pid}"
 
-                        raw_edges.append((
-                            wp_node,
-                            port_dep_node,
-                            w.inventory[pid],
-                            0,
-                            {"type": "PORT_FEEDER_LAND", "product_id": pid},
-                        ))
-                        raw_edges.append((
-                            port_dep_node,
-                            port_arr_node,
-                            sea_slot_cap,  # Shared feeder container vessel slot limit
-                            0,
-                            {
-                                "type": "TRANSPORT_MARITIME",
-                                "source_id": w.warehouse_id,
-                                "target_id": s.store_id,
-                                "departure_port_id": dep_port.warehouse_id,
-                                "arrival_port_id": arr_port.warehouse_id,
-                                "product_id": pid,
-                                "modality": Modality.MARITIME,
-                            },
-                        ))
-                        raw_edges.append((
-                            port_arr_node,
-                            sp_node,
-                            req,
-                            0,
-                            {"type": "PORT_LAST_MILE", "product_id": pid},
-                        ))
+                        raw_edges.append(
+                            (
+                                wp_node,
+                                port_dep_node,
+                                w.inventory[pid],
+                                0,
+                                {"type": "PORT_FEEDER_LAND", "product_id": pid},
+                            )
+                        )
+                        raw_edges.append(
+                            (
+                                port_dep_node,
+                                port_arr_node,
+                                sea_slot_cap,  # Shared feeder container vessel slot limit
+                                0,
+                                {
+                                    "type": "TRANSPORT_MARITIME",
+                                    "source_id": w.warehouse_id,
+                                    "target_id": s.store_id,
+                                    "departure_port_id": dep_port.warehouse_id,
+                                    "arrival_port_id": arr_port.warehouse_id,
+                                    "product_id": pid,
+                                    "modality": Modality.MARITIME,
+                                },
+                            )
+                        )
+                        raw_edges.append(
+                            (
+                                port_arr_node,
+                                sp_node,
+                                req,
+                                0,
+                                {"type": "PORT_LAST_MILE", "product_id": pid},
+                            )
+                        )
 
                     if dep_airport and arr_airport:
                         air_dep_node = f"AIR_DEP_{dep_airport.warehouse_id}_PROD_{pid}"
                         air_arr_node = f"AIR_ARR_{arr_airport.warehouse_id}_PROD_{pid}"
 
-                        raw_edges.append((
-                            wp_node,
-                            air_dep_node,
-                            w.inventory[pid],
-                            0,
-                            {"type": "AIR_FEEDER_LAND", "product_id": pid},
-                        ))
-                        raw_edges.append((
-                            air_dep_node,
-                            air_arr_node,
-                            air_slot_cap,  # Shared air cargo container / pallet capacity
-                            0,
-                            {
-                                "type": "TRANSPORT_AIR",
-                                "source_id": w.warehouse_id,
-                                "target_id": s.store_id,
-                                "departure_airport_id": dep_airport.warehouse_id,
-                                "arrival_airport_id": arr_airport.warehouse_id,
-                                "product_id": pid,
-                                "modality": Modality.AIR,
-                            },
-                        ))
-                        raw_edges.append((
-                            air_arr_node,
-                            sp_node,
-                            req,
-                            0,
-                            {"type": "AIR_LAST_MILE", "product_id": pid},
-                        ))
+                        raw_edges.append(
+                            (
+                                wp_node,
+                                air_dep_node,
+                                w.inventory[pid],
+                                0,
+                                {"type": "AIR_FEEDER_LAND", "product_id": pid},
+                            )
+                        )
+                        raw_edges.append(
+                            (
+                                air_dep_node,
+                                air_arr_node,
+                                air_slot_cap,  # Shared air cargo container / pallet capacity
+                                0,
+                                {
+                                    "type": "TRANSPORT_AIR",
+                                    "source_id": w.warehouse_id,
+                                    "target_id": s.store_id,
+                                    "departure_airport_id": dep_airport.warehouse_id,
+                                    "arrival_airport_id": arr_airport.warehouse_id,
+                                    "product_id": pid,
+                                    "modality": Modality.AIR,
+                                },
+                            )
+                        )
+                        raw_edges.append(
+                            (
+                                air_arr_node,
+                                sp_node,
+                                req,
+                                0,
+                                {"type": "AIR_LAST_MILE", "product_id": pid},
+                            )
+                        )
 
     # Pre-register all node names into integer mapping
     for u_name, v_name, _, _, _ in raw_edges:
@@ -438,13 +511,15 @@ def solve_network_flow(
         get_node_id(v_name)
 
     # Add Circulation Return Edge: (ORIG_SINK -> ORIG_SOURCE) with infinite capacity
-    raw_edges.append((
-        "ORIG_SINK",
-        "ORIG_SOURCE",
-        1000000,
-        0,
-        {"type": "CIRCULATION_RETURN"},
-    ))
+    raw_edges.append(
+        (
+            "ORIG_SINK",
+            "ORIG_SOURCE",
+            1000000,
+            0,
+            {"type": "CIRCULATION_RETURN"},
+        )
+    )
 
     # 3. Construct Circulation Network with Lower Bounds Reduction
     # S* (Super-Source) and T* (Super-Sink)
@@ -474,11 +549,23 @@ def solve_network_flow(
     target_lower_bound_flow = 0
     for node_id, demand in node_demands.items():
         if demand > 0:
-            e = graph.add_edge(S_STAR, node_id, capacity=demand, lower_bound=0, meta={"type": "SUPER_SOURCE_BALANCE"})
+            e = graph.add_edge(
+                S_STAR,
+                node_id,
+                capacity=demand,
+                lower_bound=0,
+                meta={"type": "SUPER_SOURCE_BALANCE"},
+            )
             tracked_edges.append((e, {"type": "SUPER_SOURCE_BALANCE"}))
             target_lower_bound_flow += demand
         elif demand < 0:
-            e = graph.add_edge(node_id, T_STAR, capacity=-demand, lower_bound=0, meta={"type": "SUPER_SINK_BALANCE"})
+            e = graph.add_edge(
+                node_id,
+                T_STAR,
+                capacity=-demand,
+                lower_bound=0,
+                meta={"type": "SUPER_SINK_BALANCE"},
+            )
             tracked_edges.append((e, {"type": "SUPER_SINK_BALANCE"}))
 
     # Build complete node metadata dictionary for graph visualization
@@ -489,7 +576,9 @@ def solve_network_flow(
             layer=0,
             node_type="SUPER_SOURCE",
             title="Circulation Super-Source S*",
-            metadata={"role": "Injects lower-bound demand offsets d(v) > 0 into the circulation network."},
+            metadata={
+                "role": "Injects lower-bound demand offsets d(v) > 0 into the circulation network."
+            },
         ),
         "ORIG_SOURCE": GraphNode(
             node_id="ORIG_SOURCE",
@@ -551,7 +640,11 @@ def solve_network_flow(
                         layer=4,
                         node_type="PORT_GATEWAY",
                         title=f"Port Departure Berth: {dep_port.name} (P{pid})",
-                        metadata={"port_name": dep_port.name, "product_id": pid, "berth": "DEPARTURE"},
+                        metadata={
+                            "port_name": dep_port.name,
+                            "product_id": pid,
+                            "berth": "DEPARTURE",
+                        },
                     )
                 if any(u == arr_key or v == arr_key for u, v, _, _, _ in raw_edges):
                     nodes_dict[arr_key] = GraphNode(
@@ -560,7 +653,11 @@ def solve_network_flow(
                         layer=4,
                         node_type="PORT_GATEWAY",
                         title=f"Port Arrival Berth: {dep_port.name} (P{pid})",
-                        metadata={"port_name": dep_port.name, "product_id": pid, "berth": "ARRIVAL"},
+                        metadata={
+                            "port_name": dep_port.name,
+                            "product_id": pid,
+                            "berth": "ARRIVAL",
+                        },
                     )
 
     # Airport Cargo Gateways
@@ -576,7 +673,11 @@ def solve_network_flow(
                         layer=4,
                         node_type="AIR_GATEWAY",
                         title=f"Air Cargo Departure Terminal: {dep_air.name} (P{pid})",
-                        metadata={"airport_name": dep_air.name, "product_id": pid, "terminal": "DEPARTURE"},
+                        metadata={
+                            "airport_name": dep_air.name,
+                            "product_id": pid,
+                            "terminal": "DEPARTURE",
+                        },
                     )
                 if any(u == arr_key or v == arr_key for u, v, _, _, _ in raw_edges):
                     nodes_dict[arr_key] = GraphNode(
@@ -585,7 +686,11 @@ def solve_network_flow(
                         layer=4,
                         node_type="AIR_GATEWAY",
                         title=f"Air Cargo Arrival Terminal: {dep_air.name} (P{pid})",
-                        metadata={"airport_name": dep_air.name, "product_id": pid, "terminal": "ARRIVAL"},
+                        metadata={
+                            "airport_name": dep_air.name,
+                            "product_id": pid,
+                            "terminal": "ARRIVAL",
+                        },
                     )
 
     # Store Products & Stores
@@ -649,7 +754,9 @@ def solve_network_flow(
     total_satisfied = 0
     alloc_id_counter = 1
 
-    corridor_flows: dict[str, dict[str, Any]] = defaultdict(lambda: {"flow": 0, "cap": 0, "mod": Modality.LAND})
+    corridor_flows: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {"flow": 0, "cap": 0, "mod": Modality.LAND}
+    )
 
     for edge, meta in tracked_edges:
         edge_type = meta.get("type")
@@ -802,12 +909,18 @@ def solve_network_flow(
 
                 # Trace supply depletion across reachable warehouses (land, sea, and air gateways)
                 reachable_whs = [
-                    w for w in warehouses
-                    if pid in w.inventory and (
+                    w
+                    for w in warehouses
+                    if pid in w.inventory
+                    and (
                         node_to_comp.get(w.warehouse_id) == s_comp
                         or w.is_port
                         or w.is_airport
-                        or any((p.is_port or p.is_airport) for p in warehouses if node_to_comp.get(p.warehouse_id) == node_to_comp.get(w.warehouse_id))
+                        or any(
+                            (p.is_port or p.is_airport)
+                            for p in warehouses
+                            if node_to_comp.get(p.warehouse_id) == node_to_comp.get(w.warehouse_id)
+                        )
                     )
                 ]
 
@@ -817,7 +930,9 @@ def solve_network_flow(
                     w_stock = w.inventory[pid]
                     used = wh_prod_consumed[(w.warehouse_id, str(pid))]
                     total_reachable_supply += w_stock
-                    contributing_traces.append(f"{w.name} (W{w.warehouse_id}): {used}/{w_stock} units used")
+                    contributing_traces.append(
+                        f"{w.name} (W{w.warehouse_id}): {used}/{w_stock} units used"
+                    )
 
                 if total_reachable_supply < req_qty:
                     b_type = BottleneckType.SUPPLY_EXHAUSTION
@@ -826,7 +941,11 @@ def solve_network_flow(
                         f"is {total_reachable_supply} units, which cannot satisfy Store S{s.store_id} ({s.name}) request of {req_qty} units. "
                         f"Shortfall = {shortfall} units. All contributing warehouse stocks are 100% depleted."
                     )
-                elif any(not is_peninsular(st_map[s.store_id].longitude) != is_peninsular(wh_map[w.warehouse_id].longitude) for w in reachable_whs):
+                elif any(
+                    not is_peninsular(st_map[s.store_id].longitude)
+                    != is_peninsular(wh_map[w.warehouse_id].longitude)
+                    for w in reachable_whs
+                ):
                     b_type = BottleneckType.VESSEL_SLOT_EXHAUSTION
                     explanation = (
                         f"Transshipment Vessel Slot Exhaustion: Product P{pid} has warehouse inventory ({total_reachable_supply} units available), "
@@ -921,7 +1040,11 @@ def solve_network_flow(
                     f"via E1/Highway ({alloc.distance_km} km)."
                 )
 
-    pct_satisfied = round((total_satisfied / total_demand_requested) * 100.0, 1) if total_demand_requested > 0 else 100.0
+    pct_satisfied = (
+        round((total_satisfied / total_demand_requested) * 100.0, 1)
+        if total_demand_requested > 0
+        else 100.0
+    )
 
     summary = (
         f"[VERIFIED: FLOW OPTIMAL] Feasible circulation established. {total_satisfied}/{total_demand_requested} units allocated ({pct_satisfied}% satisfaction rate)."

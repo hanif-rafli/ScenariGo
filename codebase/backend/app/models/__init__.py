@@ -1,41 +1,41 @@
 from app.models.entities import (
-    Warehouse,
-    Store,
-    ProductStock,
-    ProductDemand,
-    TruckModel,
     EconomicParameters,
     FleetConfig,
+    ProductDemand,
+    ProductStock,
+    Store,
+    TruckModel,
+    Warehouse,
+)
+from app.models.fleet import (
+    DispatchItinerary,
+    RefuelingStop,
+    Stage4Result,
+    TripLeg,
+    TripLegType,
+    TruckInstance,
+)
+from app.models.flow import (
+    AllocationItem,
+    AllocationStatus,
+    BottleneckDetail,
+    BottleneckType,
+    FlowEdgeUtilization,
+    RouteType,
+    Stage3Result,
+)
+from app.models.graph import (
+    ComponentInfo,
+    IntermodalRoute,
+    Modality,
+    NetworkEdge,
+    Stage2Result,
 )
 from app.models.responses import (
     FeasibilityStatus,
     FeasibilityToken,
-    Stage1Result,
     SimulationRequest,
-)
-from app.models.graph import (
-    Modality,
-    NetworkEdge,
-    ComponentInfo,
-    IntermodalRoute,
-    Stage2Result,
-)
-from app.models.flow import (
-    AllocationStatus,
-    RouteType,
-    BottleneckType,
-    BottleneckDetail,
-    AllocationItem,
-    FlowEdgeUtilization,
-    Stage3Result,
-)
-from app.models.fleet import (
-    TripLegType,
-    RefuelingStop,
-    TripLeg,
-    DispatchItinerary,
-    TruckInstance,
-    Stage4Result,
+    Stage1Result,
 )
 
 __all__ = [

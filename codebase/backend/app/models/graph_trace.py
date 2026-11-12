@@ -1,9 +1,11 @@
-from typing import Any, Optional
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
 class GraphNode(BaseModel):
     """Represents a node in a network flow visualization."""
+
     node_id: str
     short_label: str
     layer: int
@@ -14,6 +16,7 @@ class GraphNode(BaseModel):
 
 class GraphEdgeSnapshot(BaseModel):
     """State of a directed edge at a specific iteration step."""
+
     edge_id: str
     source: str
     target: str
@@ -22,13 +25,14 @@ class GraphEdgeSnapshot(BaseModel):
     lower_bound: int = 0
     residual_forward: int = 0
     residual_backward: int = 0
-    cost_myr: Optional[float] = None
+    cost_myr: float | None = None
     in_augmenting_path: bool = False
     edge_type: str = "STANDARD"
 
 
 class GraphIterationStep(BaseModel):
     """A single augmentation or construction step in the flow timeline."""
+
     step_index: int
     label: str
     description: str
@@ -42,6 +46,7 @@ class GraphIterationStep(BaseModel):
 
 class NetworkFlowGraphTrace(BaseModel):
     """Complete network flow execution trace including topology and iteration steps."""
+
     graph_type: str  # CIRCULATION_DEMANDS | BIPARTITE_MIN_COST
     nodes: list[GraphNode] = Field(default_factory=list)
     steps: list[GraphIterationStep] = Field(default_factory=list)

@@ -1,9 +1,9 @@
 from app.models.entities import (
-    Warehouse,
-    Store,
-    FleetConfig,
-    TruckModel,
     EconomicParameters,
+    FleetConfig,
+    Store,
+    TruckModel,
+    Warehouse,
 )
 from app.models.responses import SimulationRequest
 
@@ -110,7 +110,7 @@ def get_deficit_preset() -> SimulationRequest:
 
 def get_air_freight_preset() -> SimulationRequest:
     """Preset 3: Expedited Air Freight Transshipment (KLIA -> Kuching).
-    
+
     Models an urgent East Malaysia replenishment where cross-strait cargo is
     airlifted via dedicated air cargo freighters between KLIA and Kuching Airport.
     """
@@ -208,12 +208,12 @@ def get_air_freight_preset() -> SimulationRequest:
 
 def get_tri_port_preset() -> SimulationRequest:
     """Preset 4: Tri-Port Multi-Gateway Peninsular Logistics.
-    
+
     Models three Peninsular maritime port gateways connecting to East Malaysia:
     1. North: Butterworth Logistics Depot (Penang Port NBCT, 5.4120, 100.3700)
     2. Central: Port Klang Gateway (Westports / Northport, 2.9985, 101.3928)
     3. South: Port of Tanjung Pelepas (PTP Johor, 1.3620, 103.5510)
-    
+
     Connected via high-precision E1/E2 North-South Expressway, Federal Route 2,
     and deepwater maritime shipping fairways to Kuching Transshipment Port (1.5533, 110.3592).
     """

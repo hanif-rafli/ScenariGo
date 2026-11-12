@@ -12,25 +12,25 @@ Tests:
 """
 
 from fastapi.testclient import TestClient
-from app.models.entities import Warehouse, Store, FleetConfig, EconomicParameters
-from app.models.responses import SimulationRequest
-from app.models.fleet import TruckInstance
+
 from app.core.stage2_reachability import evaluate_reachability, get_corridor_waypoints
 from app.core.stage3_network_flow import solve_network_flow
 from app.core.stage4_fleet_routing import (
     hungarian_min_cost_assignment,
     solve_fleet_routing,
 )
+from app.models.entities import Store, Warehouse
+from app.models.fleet import TruckInstance
 from app.models.graph import Modality
 
 
 def test_kuhn_munkres_rectangular_matrix_optimality():
     """Verifies that Kuhn-Munkres finds the global optimum where a greedy algorithm fails.
-    
+
     Cost Matrix:
     Truck 0: Task 0 = 10, Task 1 = 12
     Truck 1: Task 0 = 11, Task 1 = 100
-    
+
     Greedy choice picks (Truck 0 -> Task 0) at cost 10, forcing (Truck 1 -> Task 1) at cost 100 -> Total = 110.
     Optimal choice is (Truck 1 -> Task 0) at 11, (Truck 0 -> Task 1) at 12 -> Total = 23.
     """

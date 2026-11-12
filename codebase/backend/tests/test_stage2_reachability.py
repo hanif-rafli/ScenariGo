@@ -1,7 +1,8 @@
 from fastapi.testclient import TestClient
+
 from app.core.stage2_reachability import evaluate_reachability
-from app.models.responses import SimulationRequest
 from app.models.graph import Modality
+from app.models.responses import SimulationRequest
 
 
 def test_partitioning_baseline(baseline_scenario: SimulationRequest):
@@ -59,16 +60,24 @@ def test_gis_network_edges_geometries(baseline_scenario: SimulationRequest):
     assert len(sea_edges) == 1
 
     # Check Highway geometries: North-South expressway has rich curve alignments
-    penang_ipoh = next(e for e in land_edges if "Penang" in e.source_name and "Ipoh" in e.target_name)
+    penang_ipoh = next(
+        e for e in land_edges if "Penang" in e.source_name and "Ipoh" in e.target_name
+    )
     assert len(penang_ipoh.path_coordinates) == 87  # Real E1 highway curve geometry
 
-    ipoh_kl = next(e for e in land_edges if "Ipoh" in e.source_name and "Kuala Lumpur" in e.target_name)
+    ipoh_kl = next(
+        e for e in land_edges if "Ipoh" in e.source_name and "Kuala Lumpur" in e.target_name
+    )
     assert len(ipoh_kl.path_coordinates) == 134  # Real E1 highway curve geometry
 
-    kl_shah_alam = next(e for e in land_edges if "Kuala Lumpur" in e.source_name and "Shah Alam" in e.target_name)
+    kl_shah_alam = next(
+        e for e in land_edges if "Kuala Lumpur" in e.source_name and "Shah Alam" in e.target_name
+    )
     assert len(kl_shah_alam.path_coordinates) == 18  # Real Federal Route 2 curve geometry
 
-    kuching_road = next(e for e in land_edges if "Kuching" in e.source_name and "Central" in e.target_name)
+    kuching_road = next(
+        e for e in land_edges if "Kuching" in e.source_name and "Central" in e.target_name
+    )
     assert len(kuching_road.path_coordinates) == 10  # Real bypass road geometry
 
     # Check Maritime shipping lane geometry
@@ -83,10 +92,7 @@ def test_gis_network_edges_geometries(baseline_scenario: SimulationRequest):
 
     # 2. Navigates NORTH of Tanjung Datu / Sambas into deep water (max latitude >= 2.40N)
     # Never cuts across the Borneo landmass (lat must stay >= 2.30N while rounding lon 109.0 - 110.2)
-    tg_datu_points = [
-        pt for pt in sea_lane.path_coordinates
-        if 109.0 <= pt[1] <= 110.2
-    ]
+    tg_datu_points = [pt for pt in sea_lane.path_coordinates if 109.0 <= pt[1] <= 110.2]
     assert len(tg_datu_points) >= 3
     for pt in tg_datu_points:
         assert pt[0] >= 2.30  # At least 35 km north of Tanjung Datu tip (2.08N)

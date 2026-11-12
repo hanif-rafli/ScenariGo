@@ -1,7 +1,8 @@
 from fastapi import APIRouter
-from app.models.responses import SimulationRequest
-from app.models.graph import Stage2Result
+
 from app.core.stage2_reachability import evaluate_reachability
+from app.models.graph import Stage2Result
+from app.models.responses import SimulationRequest
 
 router = APIRouter()
 

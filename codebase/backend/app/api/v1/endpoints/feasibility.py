@@ -1,6 +1,7 @@
 from fastapi import APIRouter
-from app.models.responses import SimulationRequest, Stage1Result
+
 from app.core.stage1_feasibility import check_global_feasibility
+from app.models.responses import SimulationRequest, Stage1Result
 
 router = APIRouter()
 

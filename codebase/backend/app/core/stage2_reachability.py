@@ -1,32 +1,32 @@
 from collections import defaultdict, deque
-from app.models.entities import Warehouse, Store
-from app.models.graph import (
-    Modality,
-    NetworkEdge,
-    ComponentInfo,
-    IntermodalRoute,
-    Stage2Result,
-)
+
 from app.data.malaysia_network import (
-    haversine_distance_km,
-    road_distance_km,
-    fetch_dynamic_road_path,
+    AIR_KLIA_TO_KUCHING_WAYPOINTS,
+    HIGHWAY_BUTTERWORTH_TO_IPOH_WAYPOINTS,
+    HIGHWAY_IPOH_TO_KL_WAYPOINTS,
+    HIGHWAY_KL_TO_PTP_JOHOR_WAYPOINTS,
+    HIGHWAY_KL_TO_SHAH_ALAM_WAYPOINTS,
+    HIGHWAY_KLIA_TO_IPOH_WAYPOINTS,
+    HIGHWAY_KLIA_TO_SHAH_ALAM_WAYPOINTS,
+    HIGHWAY_KUCHING_AIRPORT_TO_CITY_WAYPOINTS,
+    HIGHWAY_KUCHING_PORT_TO_CITY_WAYPOINTS,
+    HIGHWAY_PENANG_TO_IPOH_WAYPOINTS,
+    HIGHWAY_PORT_KLANG_TO_SHAH_ALAM_WAYPOINTS,
+    HIGHWAY_PTP_TO_JB_WAYPOINTS,
+    MARITIME_CENTRAL_SCS_TO_SABAH_WAYPOINTS,
     MARITIME_PENANG_TO_KUCHING_WAYPOINTS,
     MARITIME_PORT_KLANG_TO_KUCHING_WAYPOINTS,
     MARITIME_PTP_JOHOR_TO_KUCHING_WAYPOINTS,
-    MARITIME_CENTRAL_SCS_TO_SABAH_WAYPOINTS,
-    AIR_KLIA_TO_KUCHING_WAYPOINTS,
-    HIGHWAY_PENANG_TO_IPOH_WAYPOINTS,
-    HIGHWAY_BUTTERWORTH_TO_IPOH_WAYPOINTS,
-    HIGHWAY_IPOH_TO_KL_WAYPOINTS,
-    HIGHWAY_KL_TO_SHAH_ALAM_WAYPOINTS,
-    HIGHWAY_PORT_KLANG_TO_SHAH_ALAM_WAYPOINTS,
-    HIGHWAY_KL_TO_PTP_JOHOR_WAYPOINTS,
-    HIGHWAY_PTP_TO_JB_WAYPOINTS,
-    HIGHWAY_KUCHING_PORT_TO_CITY_WAYPOINTS,
-    HIGHWAY_KLIA_TO_SHAH_ALAM_WAYPOINTS,
-    HIGHWAY_KUCHING_AIRPORT_TO_CITY_WAYPOINTS,
-    HIGHWAY_KLIA_TO_IPOH_WAYPOINTS,
+    fetch_dynamic_road_path,
+    haversine_distance_km,
+)
+from app.models.entities import Store, Warehouse
+from app.models.graph import (
+    ComponentInfo,
+    IntermodalRoute,
+    Modality,
+    NetworkEdge,
+    Stage2Result,
 )
 
 
@@ -57,7 +57,15 @@ def get_corridor_waypoints(
     if is_cross_strait and (
         matches(name1, name2, "klia", "kuching")
         or matches(name1, name2, "air", "kuching")
-        or (matches(name1, name2, "kuala lumpur", "kuching") and ("cargo" in name1.lower() or "cargo" in name2.lower() or "air" in name1.lower() or "air" in name2.lower()))
+        or (
+            matches(name1, name2, "kuala lumpur", "kuching")
+            and (
+                "cargo" in name1.lower()
+                or "cargo" in name2.lower()
+                or "air" in name1.lower()
+                or "air" in name2.lower()
+            )
+        )
     ):
         pts = (
             AIR_KLIA_TO_KUCHING_WAYPOINTS
@@ -69,7 +77,11 @@ def get_corridor_waypoints(
     # 1. Maritime Shipping Fairways (cross-strait around Malay Peninsula)
     if is_cross_strait:
         # PTP Johor -> Kuching (Deepwater corridor through Singapore Strait TSS, clearing Tanjung Datu at >= 2.42N)
-        if matches(name1, name2, "ptp", "kuching") or matches(name1, name2, "pelepas", "kuching") or matches(name1, name2, "johor", "kuching"):
+        if (
+            matches(name1, name2, "ptp", "kuching")
+            or matches(name1, name2, "pelepas", "kuching")
+            or matches(name1, name2, "johor", "kuching")
+        ):
             pts = (
                 MARITIME_PTP_JOHOR_TO_KUCHING_WAYPOINTS
                 if is_peninsular(c1[1])
@@ -78,7 +90,11 @@ def get_corridor_waypoints(
             return [c1] + list(pts[1:-1]) + [c2], 840.0, Modality.MARITIME
 
         # Port Klang -> Kuching (Malacca Strait TSS to South China Sea fairway)
-        if matches(name1, name2, "port klang", "kuching") or matches(name1, name2, "klang", "kuching") or matches(name1, name2, "kuala lumpur", "kuching"):
+        if (
+            matches(name1, name2, "port klang", "kuching")
+            or matches(name1, name2, "klang", "kuching")
+            or matches(name1, name2, "kuala lumpur", "kuching")
+        ):
             pts = (
                 MARITIME_PORT_KLANG_TO_KUCHING_WAYPOINTS
                 if is_peninsular(c1[1])
@@ -87,7 +103,9 @@ def get_corridor_waypoints(
             return [c1] + list(pts[1:-1]) + [c2], 1320.0, Modality.MARITIME
 
         # Butterworth / Penang Port -> Kuching
-        if matches(name1, name2, "butterworth", "kuching") or matches(name1, name2, "penang", "kuching"):
+        if matches(name1, name2, "butterworth", "kuching") or matches(
+            name1, name2, "penang", "kuching"
+        ):
             pts = (
                 MARITIME_PENANG_TO_KUCHING_WAYPOINTS
                 if is_peninsular(c1[1])
@@ -99,7 +117,8 @@ def get_corridor_waypoints(
         borneo_coord = c2 if not is_peninsular(c2[1]) else c1
         pen_coord = c1 if is_peninsular(c1[1]) else c2
         is_sabah_or_north = borneo_coord[0] >= 3.0 or any(
-            k in name1.lower() or k in name2.lower() for k in ["sabah", "kinabalu", "sandakan", "labuan", "bintulu", "miri"]
+            k in name1.lower() or k in name2.lower()
+            for k in ["sabah", "kinabalu", "sandakan", "labuan", "bintulu", "miri"]
         )
 
         if is_sabah_or_north:
@@ -128,11 +147,7 @@ def get_corridor_waypoints(
 
     if matches(name1, name2, "butterworth", "kuala lumpur"):
         full_pts = HIGHWAY_BUTTERWORTH_TO_IPOH_WAYPOINTS + HIGHWAY_IPOH_TO_KL_WAYPOINTS[1:]
-        pts = (
-            full_pts
-            if "butterworth" in name1.lower()
-            else list(reversed(full_pts))
-        )
+        pts = full_pts if "butterworth" in name1.lower() else list(reversed(full_pts))
         return [c1] + list(pts[1:-1]) + [c2], 350.5, Modality.LAND
 
     if matches(name1, name2, "butterworth", "shah alam"):
@@ -141,15 +156,13 @@ def get_corridor_waypoints(
             + HIGHWAY_IPOH_TO_KL_WAYPOINTS[1:]
             + HIGHWAY_KL_TO_SHAH_ALAM_WAYPOINTS[1:]
         )
-        pts = (
-            full_pts
-            if "butterworth" in name1.lower()
-            else list(reversed(full_pts))
-        )
+        pts = full_pts if "butterworth" in name1.lower() else list(reversed(full_pts))
         return [c1] + list(pts[1:-1]) + [c2], 375.7, Modality.LAND
 
     # Port Klang Gateway Highway Corridors
-    if matches(name1, name2, "port klang", "shah alam") or matches(name1, name2, "klang", "shah alam"):
+    if matches(name1, name2, "port klang", "shah alam") or matches(
+        name1, name2, "klang", "shah alam"
+    ):
         pts = (
             HIGHWAY_PORT_KLANG_TO_SHAH_ALAM_WAYPOINTS
             if "klang" in name1.lower()
@@ -157,13 +170,14 @@ def get_corridor_waypoints(
         )
         return [c1] + list(pts[1:-1]) + [c2], 18.5, Modality.LAND
 
-    if matches(name1, name2, "port klang", "kuala lumpur") or matches(name1, name2, "klang", "kuala lumpur"):
-        full_pts = HIGHWAY_PORT_KLANG_TO_SHAH_ALAM_WAYPOINTS + list(reversed(HIGHWAY_KL_TO_SHAH_ALAM_WAYPOINTS))[1:]
-        pts = (
-            full_pts
-            if "klang" in name1.lower()
-            else list(reversed(full_pts))
+    if matches(name1, name2, "port klang", "kuala lumpur") or matches(
+        name1, name2, "klang", "kuala lumpur"
+    ):
+        full_pts = (
+            HIGHWAY_PORT_KLANG_TO_SHAH_ALAM_WAYPOINTS
+            + list(reversed(HIGHWAY_KL_TO_SHAH_ALAM_WAYPOINTS))[1:]
         )
+        pts = full_pts if "klang" in name1.lower() else list(reversed(full_pts))
         return [c1] + list(pts[1:-1]) + [c2], 43.7, Modality.LAND
 
     if matches(name1, name2, "port klang", "ipoh") or matches(name1, name2, "klang", "ipoh"):
@@ -172,11 +186,7 @@ def get_corridor_waypoints(
             + list(reversed(HIGHWAY_KL_TO_SHAH_ALAM_WAYPOINTS))[1:]
             + list(reversed(HIGHWAY_IPOH_TO_KL_WAYPOINTS))[1:]
         )
-        pts = (
-            full_pts
-            if "klang" in name1.lower()
-            else list(reversed(full_pts))
-        )
+        pts = full_pts if "klang" in name1.lower() else list(reversed(full_pts))
         return [c1] + list(pts[1:-1]) + [c2], 241.0, Modality.LAND
 
     # Port of Tanjung Pelepas (PTP Johor) & Southern Corridors
@@ -188,7 +198,9 @@ def get_corridor_waypoints(
         )
         return [c1] + list(pts[1:-1]) + [c2], 28.5, Modality.LAND
 
-    if matches(name1, name2, "ptp", "kuala lumpur") or matches(name1, name2, "pelepas", "kuala lumpur"):
+    if matches(name1, name2, "ptp", "kuala lumpur") or matches(
+        name1, name2, "pelepas", "kuala lumpur"
+    ):
         pts = (
             list(reversed(HIGHWAY_KL_TO_PTP_JOHOR_WAYPOINTS))
             if ("ptp" in name1.lower() or "pelepas" in name1.lower())
@@ -197,7 +209,10 @@ def get_corridor_waypoints(
         return [c1] + list(pts[1:-1]) + [c2], 328.0, Modality.LAND
 
     if matches(name1, name2, "ptp", "shah alam") or matches(name1, name2, "pelepas", "shah alam"):
-        full_pts = list(reversed(HIGHWAY_KL_TO_SHAH_ALAM_WAYPOINTS)) + HIGHWAY_KL_TO_PTP_JOHOR_WAYPOINTS[1:]
+        full_pts = (
+            list(reversed(HIGHWAY_KL_TO_SHAH_ALAM_WAYPOINTS))
+            + HIGHWAY_KL_TO_PTP_JOHOR_WAYPOINTS[1:]
+        )
         pts = (
             list(reversed(full_pts))
             if ("ptp" in name1.lower() or "pelepas" in name1.lower())
@@ -207,11 +222,7 @@ def get_corridor_waypoints(
 
     if matches(name1, name2, "kuala lumpur", "johor"):
         full_pts = HIGHWAY_KL_TO_PTP_JOHOR_WAYPOINTS + HIGHWAY_PTP_TO_JB_WAYPOINTS[1:]
-        pts = (
-            full_pts
-            if "kuala lumpur" in name1.lower()
-            else list(reversed(full_pts))
-        )
+        pts = full_pts if "kuala lumpur" in name1.lower() else list(reversed(full_pts))
         return [c1] + list(pts[1:-1]) + [c2], 356.5, Modality.LAND
 
     if matches(name1, name2, "shah alam", "johor"):
@@ -220,20 +231,12 @@ def get_corridor_waypoints(
             + HIGHWAY_KL_TO_PTP_JOHOR_WAYPOINTS[1:]
             + HIGHWAY_PTP_TO_JB_WAYPOINTS[1:]
         )
-        pts = (
-            full_pts
-            if "shah alam" in name1.lower()
-            else list(reversed(full_pts))
-        )
+        pts = full_pts if "shah alam" in name1.lower() else list(reversed(full_pts))
         return [c1] + list(pts[1:-1]) + [c2], 381.7, Modality.LAND
 
     if matches(name1, name2, "penang", "kuala lumpur"):
         full_pts = HIGHWAY_PENANG_TO_IPOH_WAYPOINTS + HIGHWAY_IPOH_TO_KL_WAYPOINTS[1:]
-        pts = (
-            full_pts
-            if "penang" in name1.lower()
-            else list(reversed(full_pts))
-        )
+        pts = full_pts if "penang" in name1.lower() else list(reversed(full_pts))
         return [c1] + list(pts[1:-1]) + [c2], 354.7, Modality.LAND
 
     if matches(name1, name2, "penang", "shah alam"):
@@ -242,11 +245,7 @@ def get_corridor_waypoints(
             + HIGHWAY_IPOH_TO_KL_WAYPOINTS[1:]
             + HIGHWAY_KL_TO_SHAH_ALAM_WAYPOINTS[1:]
         )
-        pts = (
-            full_pts
-            if "penang" in name1.lower()
-            else list(reversed(full_pts))
-        )
+        pts = full_pts if "penang" in name1.lower() else list(reversed(full_pts))
         return [c1] + list(pts[1:-1]) + [c2], 379.9, Modality.LAND
 
     if matches(name1, name2, "penang", "ipoh"):
@@ -258,12 +257,25 @@ def get_corridor_waypoints(
         return [c1] + list(pts[1:-1]) + [c2], 157.4, Modality.LAND
 
     # Detect if either node is KLIA / Sepang (lat < 2.9 in Peninsular, or 'klia' / 'air cargo' in name)
-    is_n1_klia = "klia" in name1.lower() or ("cargo" in name1.lower() and is_peninsular(c1[1])) or (c1[0] < 2.9 and is_peninsular(c1[1]))
-    is_n2_klia = "klia" in name2.lower() or ("cargo" in name2.lower() and is_peninsular(c2[1])) or (c2[0] < 2.9 and is_peninsular(c2[1]))
+    is_n1_klia = (
+        "klia" in name1.lower()
+        or ("cargo" in name1.lower() and is_peninsular(c1[1]))
+        or (c1[0] < 2.9 and is_peninsular(c1[1]))
+    )
+    is_n2_klia = (
+        "klia" in name2.lower()
+        or ("cargo" in name2.lower() and is_peninsular(c2[1]))
+        or (c2[0] < 2.9 and is_peninsular(c2[1]))
+    )
     is_klia_corridor = is_n1_klia or is_n2_klia
 
     if is_klia_corridor:
-        if matches(name1, name2, "shah alam", "klia") or matches(name1, name2, "shah alam", "kuala lumpur") or "shah alam" in name1.lower() or "shah alam" in name2.lower():
+        if (
+            matches(name1, name2, "shah alam", "klia")
+            or matches(name1, name2, "shah alam", "kuala lumpur")
+            or "shah alam" in name1.lower()
+            or "shah alam" in name2.lower()
+        ):
             pts = (
                 HIGHWAY_KLIA_TO_SHAH_ALAM_WAYPOINTS
                 if is_n1_klia
@@ -271,7 +283,12 @@ def get_corridor_waypoints(
             )
             return [c1] + list(pts[1:-1]) + [c2], 48.9, Modality.LAND
 
-        if matches(name1, name2, "ipoh", "klia") or matches(name1, name2, "ipoh", "kuala lumpur") or "ipoh" in name1.lower() or "ipoh" in name2.lower():
+        if (
+            matches(name1, name2, "ipoh", "klia")
+            or matches(name1, name2, "ipoh", "kuala lumpur")
+            or "ipoh" in name1.lower()
+            or "ipoh" in name2.lower()
+        ):
             pts = (
                 HIGHWAY_KLIA_TO_IPOH_WAYPOINTS
                 if is_n1_klia
@@ -298,8 +315,16 @@ def get_corridor_waypoints(
 
     # Borneo Corridors (Kuching Airport Hub vs Kuching Sea Port / Transshipment)
     if not is_cross_strait and ("kuching" in name1.lower() or "kuching" in name2.lower()):
-        is_n1_airport = "airport" in name1.lower() or ("cargo" in name1.lower() and not is_peninsular(c1[1])) or c1[0] < 1.51
-        is_n2_airport = "airport" in name2.lower() or ("cargo" in name2.lower() and not is_peninsular(c2[1])) or c2[0] < 1.51
+        is_n1_airport = (
+            "airport" in name1.lower()
+            or ("cargo" in name1.lower() and not is_peninsular(c1[1]))
+            or c1[0] < 1.51
+        )
+        is_n2_airport = (
+            "airport" in name2.lower()
+            or ("cargo" in name2.lower() and not is_peninsular(c2[1]))
+            or c2[0] < 1.51
+        )
         is_kch_airport = is_n1_airport or is_n2_airport
 
         if is_kch_airport:
@@ -329,17 +354,31 @@ def build_network_edges(
     stores: list[Store],
 ) -> list[NetworkEdge]:
     """Constructs multi-modal edge list with realistic GIS waypoint paths.
-    
+
     Eliminates naive direct chords cutting across landmasses and connects nodes
     strictly through actual highway arteries and maritime fairway channels.
     """
     edges: list[NetworkEdge] = []
 
     all_nodes = [
-        {"id": w.warehouse_id, "name": w.name, "coords": (w.latitude, w.longitude), "is_wh": True, "is_port": w.is_port, "is_airport": w.is_airport}
+        {
+            "id": w.warehouse_id,
+            "name": w.name,
+            "coords": (w.latitude, w.longitude),
+            "is_wh": True,
+            "is_port": w.is_port,
+            "is_airport": w.is_airport,
+        }
         for w in warehouses
     ] + [
-        {"id": 1000 + s.store_id, "name": s.name, "coords": (s.latitude, s.longitude), "is_wh": False, "is_port": False, "is_airport": False}
+        {
+            "id": 1000 + s.store_id,
+            "name": s.name,
+            "coords": (s.latitude, s.longitude),
+            "is_wh": False,
+            "is_port": False,
+            "is_airport": False,
+        }
         for s in stores
     ]
 
@@ -358,7 +397,10 @@ def build_network_edges(
     bor_airports = [w for w in airports if not is_peninsular(w.longitude)]
     for pa in pen_airports:
         for ba in bor_airports:
-            if (pa.name, ba.name) not in connected_pairs and (ba.name, pa.name) not in connected_pairs:
+            if (pa.name, ba.name) not in connected_pairs and (
+                ba.name,
+                pa.name,
+            ) not in connected_pairs:
                 connected_pairs.append((pa.name, ba.name))
 
     # Connect Borneo airport hubs to Borneo stores if not already present
@@ -366,7 +408,10 @@ def build_network_edges(
     bor_stores = [s for s in stores if not is_peninsular(s.longitude)]
     for bw in bor_warehouses:
         for bs in bor_stores:
-            if (bw.name, bs.name) not in connected_pairs and (bs.name, bw.name) not in connected_pairs:
+            if (bw.name, bs.name) not in connected_pairs and (
+                bs.name,
+                bw.name,
+            ) not in connected_pairs:
                 connected_pairs.append((bw.name, bs.name))
 
     # Connect maritime ports across Peninsular and Borneo if active
@@ -375,7 +420,10 @@ def build_network_edges(
     bor_ports = [w for w in ports if not is_peninsular(w.longitude)]
     for pp in pen_ports:
         for bp in bor_ports:
-            if (pp.name, bp.name) not in connected_pairs and (bp.name, pp.name) not in connected_pairs:
+            if (pp.name, bp.name) not in connected_pairs and (
+                bp.name,
+                pp.name,
+            ) not in connected_pairs:
                 connected_pairs.append((pp.name, bp.name))
 
     # Match named hubs and stores in Peninsular
@@ -389,24 +437,44 @@ def build_network_edges(
                 or matches(pw.name, ps.name, "port klang", "shah alam")
                 or matches(pw.name, ps.name, "klang", "shah alam")
             ):
-                if (pw.name, ps.name) not in connected_pairs and (ps.name, pw.name) not in connected_pairs:
+                if (pw.name, ps.name) not in connected_pairs and (
+                    ps.name,
+                    pw.name,
+                ) not in connected_pairs:
                     connected_pairs.append((pw.name, ps.name))
 
-            if matches(pw.name, ps.name, "penang", "ipoh") or matches(pw.name, ps.name, "butterworth", "ipoh"):
-                if (pw.name, ps.name) not in connected_pairs and (ps.name, pw.name) not in connected_pairs:
+            if matches(pw.name, ps.name, "penang", "ipoh") or matches(
+                pw.name, ps.name, "butterworth", "ipoh"
+            ):
+                if (pw.name, ps.name) not in connected_pairs and (
+                    ps.name,
+                    pw.name,
+                ) not in connected_pairs:
                     connected_pairs.append((pw.name, ps.name))
 
-            if matches(pw.name, ps.name, "ipoh", "kuala lumpur") or matches(pw.name, ps.name, "ipoh", "klia"):
-                if (pw.name, ps.name) not in connected_pairs and (ps.name, pw.name) not in connected_pairs:
+            if matches(pw.name, ps.name, "ipoh", "kuala lumpur") or matches(
+                pw.name, ps.name, "ipoh", "klia"
+            ):
+                if (pw.name, ps.name) not in connected_pairs and (
+                    ps.name,
+                    pw.name,
+                ) not in connected_pairs:
                     connected_pairs.append((pw.name, ps.name))
 
-            if matches(pw.name, ps.name, "ptp", "johor") or matches(pw.name, ps.name, "pelepas", "johor") or matches(pw.name, ps.name, "johor", "johor"):
-                if (pw.name, ps.name) not in connected_pairs and (ps.name, pw.name) not in connected_pairs:
+            if (
+                matches(pw.name, ps.name, "ptp", "johor")
+                or matches(pw.name, ps.name, "pelepas", "johor")
+                or matches(pw.name, ps.name, "johor", "johor")
+            ):
+                if (pw.name, ps.name) not in connected_pairs and (
+                    ps.name,
+                    pw.name,
+                ) not in connected_pairs:
                     connected_pairs.append((pw.name, ps.name))
 
     # Connect trunk warehouse-to-warehouse highway links in Peninsular
     for i, pw1 in enumerate(pen_warehouses):
-        for pw2 in pen_warehouses[i + 1:]:
+        for pw2 in pen_warehouses[i + 1 :]:
             if (
                 matches(pw1.name, pw2.name, "kuala lumpur", "port klang")
                 or matches(pw1.name, pw2.name, "kuala lumpur", "klang")
@@ -414,7 +482,10 @@ def build_network_edges(
                 or matches(pw1.name, pw2.name, "kuala lumpur", "pelepas")
                 or matches(pw1.name, pw2.name, "kuala lumpur", "butterworth")
             ):
-                if (pw1.name, pw2.name) not in connected_pairs and (pw2.name, pw1.name) not in connected_pairs:
+                if (pw1.name, pw2.name) not in connected_pairs and (
+                    pw2.name,
+                    pw1.name,
+                ) not in connected_pairs:
                     connected_pairs.append((pw1.name, pw2.name))
 
     # Connect orphan Peninsular stores to nearest Peninsular warehouse
@@ -423,7 +494,9 @@ def build_network_edges(
             if pen_warehouses:
                 nearest_pw = min(
                     pen_warehouses,
-                    key=lambda w: haversine_distance_km(ps.latitude, ps.longitude, w.latitude, w.longitude)
+                    key=lambda w: haversine_distance_km(
+                        ps.latitude, ps.longitude, w.latitude, w.longitude
+                    ),
                 )
                 connected_pairs.append((nearest_pw.name, ps.name))
 
@@ -433,23 +506,39 @@ def build_network_edges(
             if bor_warehouses:
                 nearest_bw = min(
                     bor_warehouses,
-                    key=lambda w: haversine_distance_km(bs.latitude, bs.longitude, w.latitude, w.longitude)
+                    key=lambda w: haversine_distance_km(
+                        bs.latitude, bs.longitude, w.latitude, w.longitude
+                    ),
                 )
                 connected_pairs.append((nearest_bw.name, bs.name))
 
     # Guarantee every warehouse has at least one land edge if facilities exist on the same landmass
     for pw in pen_warehouses:
         if not any(pw.name == p[0] or pw.name == p[1] for p in connected_pairs):
-            other_pen = [w for w in pen_warehouses if w.warehouse_id != pw.warehouse_id] or pen_stores
+            other_pen = [
+                w for w in pen_warehouses if w.warehouse_id != pw.warehouse_id
+            ] or pen_stores
             if other_pen:
-                nearest = min(other_pen, key=lambda n: haversine_distance_km(pw.latitude, pw.longitude, n.latitude, n.longitude))
+                nearest = min(
+                    other_pen,
+                    key=lambda n: haversine_distance_km(
+                        pw.latitude, pw.longitude, n.latitude, n.longitude
+                    ),
+                )
                 connected_pairs.append((pw.name, nearest.name))
 
     for bw in bor_warehouses:
         if not any(bw.name == p[0] or bw.name == p[1] for p in connected_pairs):
-            other_bor = [w for w in bor_warehouses if w.warehouse_id != bw.warehouse_id] or bor_stores
+            other_bor = [
+                w for w in bor_warehouses if w.warehouse_id != bw.warehouse_id
+            ] or bor_stores
             if other_bor:
-                nearest = min(other_bor, key=lambda n: haversine_distance_km(bw.latitude, bw.longitude, n.latitude, n.longitude))
+                nearest = min(
+                    other_bor,
+                    key=lambda n: haversine_distance_km(
+                        bw.latitude, bw.longitude, n.latitude, n.longitude
+                    ),
+                )
                 connected_pairs.append((bw.name, nearest.name))
 
     def are_connected(n1: str, n2: str, pairs: list[tuple[str, str]]) -> bool:
@@ -584,7 +673,11 @@ def evaluate_reachability(
             if avail < req:
                 unmet[pid] = req - avail
 
-        is_pen = any(is_peninsular(wh_map[wid].longitude) for wid in comp_wh_ids) if comp_wh_ids else True
+        is_pen = (
+            any(is_peninsular(wh_map[wid].longitude) for wid in comp_wh_ids)
+            if comp_wh_ids
+            else True
+        )
         comp_name = "Peninsular Malaysia Subgraph" if is_pen else "Borneo / East Malaysia Subgraph"
 
         components.append(
@@ -621,20 +714,22 @@ def evaluate_reachability(
             for pid, shortfall in comp.unmet_demand.items():
                 surplus_comp = next(
                     (
-                        c for c in components
+                        c
+                        for c in components
                         if c.component_id != comp.component_id
                         and (c.total_supply.get(pid, 0) - c.total_demand.get(pid, 0)) >= shortfall
                     ),
-                    None
+                    None,
                 )
 
                 if surplus_comp:
                     target_store_id = next(
                         (sid for sid in comp.store_ids if st_map[sid].requests.get(pid, 0) > 0),
-                        comp.store_ids[0] if comp.store_ids else 0
+                        comp.store_ids[0] if comp.store_ids else 0,
                     )
                     cand_whs = [
-                        wid for wid in surplus_comp.warehouse_ids
+                        wid
+                        for wid in surplus_comp.warehouse_ids
                         if wh_map[wid].inventory.get(pid, 0) > 0
                     ]
                     if not cand_whs:
@@ -643,7 +738,11 @@ def evaluate_reachability(
                     source_wh_id = max(cand_whs, key=lambda wid: wh_map[wid].inventory.get(pid, 0))
 
                     # Prefer air corridor if airport gateways are explicitly established on both landmasses
-                    use_air = bool(peninsular_airports and borneo_airports and not (peninsular_ports and borneo_ports))
+                    use_air = bool(
+                        peninsular_airports
+                        and borneo_airports
+                        and not (peninsular_ports and borneo_ports)
+                    )
 
                     if use_air:
                         dep_hub = peninsular_airports[0]
@@ -729,7 +828,9 @@ def evaluate_reachability(
                             IntermodalRoute(
                                 source_warehouse_id=source_wh_id,
                                 source_warehouse_name=wh_map[source_wh_id].name,
-                                departure_port_id=dep_port.warehouse_id if dep_port else source_wh_id,
+                                departure_port_id=dep_port.warehouse_id
+                                if dep_port
+                                else source_wh_id,
                                 departure_port_name=dep_port.name if dep_port else "Departure Port",
                                 arrival_port_id=arr_port.warehouse_id if arr_port else 2,
                                 arrival_port_name=arr_port.name if arr_port else "Arrival Port",
@@ -739,7 +840,9 @@ def evaluate_reachability(
                                 quantity=shortfall,
                                 sea_distance_km=dist,
                                 sea_transit_hours=sea_hours,
-                                estimated_carrier_cost_myr=round(450.0 + (shortfall * 5.0 * 0.85), 2),
+                                estimated_carrier_cost_myr=round(
+                                    450.0 + (shortfall * 5.0 * 0.85), 2
+                                ),
                                 token_text=route_token,
                                 modality=Modality.MARITIME,
                                 path_coordinates=pts,

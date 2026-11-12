@@ -1,5 +1,6 @@
 from collections import defaultdict
-from app.models.entities import Warehouse, Store
+
+from app.models.entities import Store, Warehouse
 from app.models.responses import FeasibilityStatus, FeasibilityToken, Stage1Result
 
 
@@ -8,8 +9,8 @@ def check_global_feasibility(
     stores: list[Store],
 ) -> Stage1Result:
     """Stage 1: Global Inventory Feasibility Check (O(N) Early Cutoff).
-    
-    Verifies that aggregate warehouse inventory is greater than or equal to 
+
+    Verifies that aggregate warehouse inventory is greater than or equal to
     aggregate store demand for every requested product:
         forall p in Products: sum(Inventory(w, p)) >= sum(Request(s, p))
 

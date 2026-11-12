@@ -1,10 +1,11 @@
 from fastapi.testclient import TestClient
-from app.main import app
-from app.models.graph import Modality
+
 from app.core.stage2_reachability import evaluate_reachability
 from app.core.stage3_network_flow import solve_network_flow
 from app.core.stage4_fleet_routing import solve_fleet_routing
 from app.data.presets import get_air_freight_preset
+from app.main import app
+from app.models.graph import Modality
 
 client = TestClient(app)
 
@@ -92,8 +93,11 @@ def test_airport_highway_corridors_snapped():
 
     # Check KLIA -> Shah Alam highway edge
     klia_sa_edges = [
-        e for e in res.edges
-        if e.source_name == klia_wh.name and e.target_name == sa_st.name and e.modality == Modality.LAND
+        e
+        for e in res.edges
+        if e.source_name == klia_wh.name
+        and e.target_name == sa_st.name
+        and e.modality == Modality.LAND
     ]
     assert len(klia_sa_edges) == 1
     edge_klia_sa = klia_sa_edges[0]
@@ -103,12 +107,14 @@ def test_airport_highway_corridors_snapped():
 
     # Check Kuching Airport -> Kuching Mall highway edge
     kch_edges = [
-        e for e in res.edges
-        if e.source_name == kch_wh.name and e.target_name == kch_st.name and e.modality == Modality.LAND
+        e
+        for e in res.edges
+        if e.source_name == kch_wh.name
+        and e.target_name == kch_st.name
+        and e.modality == Modality.LAND
     ]
     assert len(kch_edges) == 1
     edge_kch = kch_edges[0]
     assert edge_kch.path_coordinates[0] == (kch_wh.latitude, kch_wh.longitude)
     assert edge_kch.path_coordinates[-1] == (kch_st.latitude, kch_st.longitude)
     assert edge_kch.distance_km == 9.3
-

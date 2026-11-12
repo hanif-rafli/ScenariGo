@@ -1,5 +1,6 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import feasibility, presets, reachability, flow, fleet, scenarios
+
+from app.api.v1.endpoints import feasibility, fleet, flow, presets, reachability, scenarios
 
 api_router = APIRouter()
 api_router.include_router(feasibility.router, prefix="/feasibility", tags=["Feasibility"])

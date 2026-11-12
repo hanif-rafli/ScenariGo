@@ -4,6 +4,7 @@ import {
   Stage3Result,
   Stage4Result,
   TruckInstance,
+  ProductItem,
 } from '../types/simulation';
 import { DashboardHealthMap } from '../components/DashboardHealthMap';
 import {
@@ -27,13 +28,17 @@ interface DashboardPageProps {
   onSelectWarehouse?: (warehouseId: number) => void;
 }
 
+const DEFAULT_PRODUCT_CATALOG: ProductItem[] = [
+  { product_id: '0', name: 'Premium Paper Cartons (A4)', sku: 'P0-PAPER-A4', category: 'Office Supplies', unit_weight_kg: 15.0, low_stock_threshold: 20 },
+  { product_id: '1', name: 'Commercial Ink Cartridges', sku: 'P1-INK-CART', category: 'Office Supplies', unit_weight_kg: 2.5, low_stock_threshold: 15 },
+  { product_id: '2', name: 'Archive Filing Cabinets', sku: 'P2-ARCH-CAB', category: 'Storage & Hardware', unit_weight_kg: 35.0, low_stock_threshold: 10 },
+];
+
 export const DashboardPage: React.FC<DashboardPageProps> = ({
   scenario,
   flowResult,
   stage4Result,
   fleet,
-  onSelectStore,
-  onSelectWarehouse,
 }) => {
   // Granularity & Display Controls
   const [regionFilter, setRegionFilter] = useState<'GLOBAL' | 'PENINSULAR' | 'BORNEO'>('GLOBAL');
@@ -44,8 +49,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   // Selected Facility for Synchronized Drill-Down
   const [selectedNode, setSelectedNode] = useState<{ type: 'warehouse' | 'store'; id: number } | null>(null);
 
-  // Products lookup
-  const products = scenario.products || [];
+  // Products lookup with robust fallback catalog
+  const products = useMemo<ProductItem[]>(() => {
+    if (scenario.products && scenario.products.length > 0) {
+      return scenario.products;
+    }
+    return DEFAULT_PRODUCT_CATALOG;
+  }, [scenario.products]);
+
   const productMap = useMemo(() => {
     const map = new Map<string, { name: string; threshold: number; weight: number }>();
     for (const p of products) {
@@ -55,8 +66,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         weight: p.unit_weight_kg,
       });
     }
+    for (const def of DEFAULT_PRODUCT_CATALOG) {
+      if (!map.has(def.product_id)) {
+        map.set(def.product_id, {
+          name: def.name,
+          threshold: def.low_stock_threshold,
+          weight: def.unit_weight_kg,
+        });
+      }
+    }
     return map;
   }, [products]);
+
+  const getProductName = (pid: string): string => {
+    return productMap.get(pid)?.name || `Product ${pid}`;
+  };
 
   // Landmass helper
   const isPeninsular = (lon: number) => lon < 105.0;
@@ -238,64 +262,64 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             {kpis.fulfillmentRate.toFixed(1)}%
           </div>
           <div className="text-[10px] text-neutral-400 mt-0.5">
-            {kpis.totalDelivered} / {kpis.totalDemand} units fulfilled
+            {kpis.totalDelivered} / {kpis.totalDemand} units
           </div>
         </div>
 
         <div className="bg-neutral-950 p-3 border border-neutral-800">
           <div className="text-[10px] text-neutral-400 uppercase tracking-wider flex items-center justify-between">
-            <span>Retail Shortfalls</span>
-            <AlertTriangle className={`w-3.5 h-3.5 ${kpis.storesWithDeficit > 0 ? 'text-red-400' : 'text-neutral-500'}`} />
+            <span>Stores with Deficit</span>
+            <TrendingDown className={`w-3.5 h-3.5 ${kpis.storesWithDeficit > 0 ? 'text-red-400' : 'text-neutral-500'}`} />
           </div>
           <div className={`text-2xl font-bold mt-1 ${kpis.storesWithDeficit > 0 ? 'text-red-400' : 'text-white'}`}>
-            {kpis.storesWithDeficit} <span className="text-xs font-normal text-neutral-400">stores</span>
+            {kpis.storesWithDeficit}
           </div>
           <div className="text-[10px] text-neutral-400 mt-0.5">
-            {kpis.totalDemand - kpis.totalDelivered} units unfulfilled
+            of {scenario.stores.length} retail outlets
           </div>
         </div>
 
         <div className="bg-neutral-950 p-3 border border-neutral-800">
           <div className="text-[10px] text-neutral-400 uppercase tracking-wider flex items-center justify-between">
-            <span>Warehouses Low/Out</span>
-            <TrendingDown className={`w-3.5 h-3.5 ${kpis.warehousesAtRisk > 0 ? 'text-amber-400' : 'text-emerald-400'}`} />
+            <span>Warehouses At Risk</span>
+            <AlertTriangle className={`w-3.5 h-3.5 ${kpis.warehousesAtRisk > 0 ? 'text-amber-400' : 'text-neutral-500'}`} />
           </div>
           <div className={`text-2xl font-bold mt-1 ${kpis.warehousesAtRisk > 0 ? 'text-amber-400' : 'text-white'}`}>
-            {kpis.warehousesAtRisk} <span className="text-xs font-normal text-neutral-400">stressed</span>
+            {kpis.warehousesAtRisk}
           </div>
           <div className="text-[10px] text-neutral-400 mt-0.5">
-            {kpis.totalRemainingSupply} units remaining reserve
+            of {scenario.warehouses.length} storage hubs
           </div>
         </div>
 
         <div className="bg-neutral-950 p-3 border border-neutral-800">
           <div className="text-[10px] text-neutral-400 uppercase tracking-wider flex items-center justify-between">
-            <span>Total Supply Checked</span>
-            <Box className="w-3.5 h-3.5 text-neutral-400" />
+            <span>Remaining Reserve</span>
+            <Box className="w-3.5 h-3.5 text-white" />
           </div>
           <div className="text-2xl font-bold mt-1">
-            {kpis.totalInitialSupply} <span className="text-xs font-normal text-neutral-400">units</span>
+            {kpis.totalRemainingSupply}
           </div>
           <div className="text-[10px] text-neutral-400 mt-0.5">
-            Across {scenario.warehouses.length} facilities
+            of {kpis.totalInitialSupply} total capacity
           </div>
         </div>
 
         <div className="bg-neutral-950 p-3 border border-neutral-800">
           <div className="text-[10px] text-neutral-400 uppercase tracking-wider flex items-center justify-between">
-            <span>Active Fleet Dispatches</span>
-            <Truck className="w-3.5 h-3.5 text-neutral-400" />
+            <span>Active Dispatches</span>
+            <Truck className="w-3.5 h-3.5 text-white" />
           </div>
           <div className="text-2xl font-bold mt-1">
-            {kpis.activeDispatches} <span className="text-xs font-normal text-neutral-400">missions</span>
+            {kpis.activeDispatches}
           </div>
           <div className="text-[10px] text-neutral-400 mt-0.5">
-            {fleet.length} total commercial vehicles
+            {fleet.length} total fleet capacity
           </div>
         </div>
       </div>
 
-      {/* 2. Granularity Controls Toolbar */}
+      {/* 2. Operational Control & Filter Ribbon */}
       <div className="bg-neutral-950 p-3 border border-neutral-800 flex flex-wrap items-center justify-between gap-3 text-xs">
         <div className="flex flex-wrap items-center gap-3">
           {/* Region Granularity */}
@@ -306,7 +330,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 <button
                   key={r}
                   onClick={() => setRegionFilter(r)}
-                  className={`px-2.5 py-1 text-[11px] font-bold uppercase transition-colors cursor-pointer ${
+                  className={`px-2 py-1 text-[11px] font-bold uppercase transition-colors cursor-pointer ${
                     regionFilter === r ? 'bg-white text-black' : 'bg-black text-white hover:bg-neutral-900'
                   }`}
                 >
@@ -316,9 +340,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </div>
           </div>
 
-          {/* Product SKU Granularity */}
+          {/* Product Filter Granularity */}
           <div className="flex items-center space-x-1.5">
-            <span className="text-neutral-400 uppercase text-[10px] tracking-wider">SKU:</span>
+            <span className="text-neutral-400 uppercase text-[10px] tracking-wider">Product:</span>
             <div className="flex border border-neutral-700">
               <button
                 onClick={() => setSkuFilter('ALL')}
@@ -326,7 +350,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   skuFilter === 'ALL' ? 'bg-white text-black' : 'bg-black text-white hover:bg-neutral-900'
                 }`}
               >
-                All SKUs
+                All Products
               </button>
               {products.map((p) => (
                 <button
@@ -336,7 +360,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     skuFilter === p.product_id ? 'bg-white text-black' : 'bg-black text-white hover:bg-neutral-900'
                   }`}
                 >
-                  P{p.product_id}
+                  {p.name}
                 </button>
               ))}
             </div>
@@ -404,10 +428,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               selectedNode={selectedNode}
               onSelectNode={(node) => {
                 setSelectedNode(node);
-                if (node) {
-                  if (node.type === 'store') onSelectStore?.(node.id);
-                  else if (node.type === 'warehouse') onSelectWarehouse?.(node.id);
-                }
               }}
               filteredProductSku={skuFilter}
             />
@@ -451,8 +471,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     <div
                       key={`st-card-${s.store_id}`}
                       onClick={() => {
-                        setSelectedNode({ type: 'store', id: s.store_id });
-                        onSelectStore?.(s.store_id);
+                        setSelectedNode((prev) =>
+                          prev?.type === 'store' && prev.id === s.store_id ? null : { type: 'store', id: s.store_id }
+                        );
                       }}
                       className={`p-2.5 border transition-all cursor-pointer ${
                         isSelected
@@ -462,9 +483,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     >
                       <div className="flex items-center justify-between text-xs mb-1">
                         <span className="font-bold flex items-center space-x-1.5">
-                          <span>S{s.store_id}: {s.name}</span>
+                          <span>{s.name}</span>
                           <span className="text-[9px] px-1 py-0.2 bg-neutral-900 border border-neutral-800 text-neutral-400">
-                            {isPeninsular(s.longitude) ? 'PEN' : 'BOR'}
+                            {isPeninsular(s.longitude) ? 'Peninsular' : 'Borneo'}
                           </span>
                         </span>
                         <span className={`text-[11px] font-bold ${shortfall > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
@@ -486,6 +507,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                           if (skuFilter !== 'ALL' && pid !== skuFilter) return null;
                           const delivered = deliv[pid] || 0;
                           const diff = req - delivered;
+                          const prodName = getProductName(pid);
                           return (
                             <span
                               key={pid}
@@ -495,7 +517,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                                   : 'border-neutral-800 bg-neutral-900 text-neutral-300'
                               }`}
                             >
-                              P{pid}: {delivered}/{req} {diff > 0 ? `(-${diff})` : ''}
+                              {prodName}: {delivered}/{req} {diff > 0 ? `(-${diff})` : ''}
                             </span>
                           );
                         })}
@@ -546,8 +568,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     <div
                       key={`wh-card-${w.warehouse_id}`}
                       onClick={() => {
-                        setSelectedNode({ type: 'warehouse', id: w.warehouse_id });
-                        onSelectWarehouse?.(w.warehouse_id);
+                        setSelectedNode((prev) =>
+                          prev?.type === 'warehouse' && prev.id === w.warehouse_id ? null : { type: 'warehouse', id: w.warehouse_id }
+                        );
                       }}
                       className={`p-2.5 border transition-all cursor-pointer ${
                         isSelected
@@ -557,7 +580,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     >
                       <div className="flex items-center justify-between text-xs mb-1">
                         <span className="font-bold flex items-center space-x-1.5">
-                          <span>W{w.warehouse_id}: {w.name}</span>
+                          <span>{w.name}</span>
                           {w.is_airport ? (
                             <span className="text-[9px] px-1 py-0.2 bg-purple-950 text-purple-300 border border-purple-800">
                               [AIR]
@@ -603,6 +626,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                           if (skuFilter !== 'ALL' && pid !== skuFilter) return null;
                           const dispatched = alloc[pid] || 0;
                           const rem = Math.max(0, init - dispatched);
+                          const prodName = getProductName(pid);
                           const thresh = productMap.get(pid)?.threshold ?? 15;
                           const isLow = rem <= thresh;
                           const isOut = rem === 0;
@@ -618,7 +642,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                                   : 'border-neutral-800 bg-neutral-900 text-neutral-300'
                               }`}
                             >
-                              P{pid}: {rem}/{init} rem
+                              {prodName}: {rem}/{init} rem
                             </span>
                           );
                         })}
@@ -642,8 +666,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedNode(null)}
-                className="text-[11px] px-2 py-0.5 bg-black hover:bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-white cursor-pointer"
+                className="text-[11px] px-2 py-0.5 bg-black hover:bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-white transition-colors cursor-pointer"
               >
                 Close Drill-Down
               </button>
@@ -654,7 +679,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 <div className="flex flex-wrap items-center justify-between gap-2 bg-black p-3 border border-neutral-800">
                   <div>
                     <div className="text-xs font-bold text-white uppercase">
-                      Store S{selectedStoreObj.store_id}: {selectedStoreObj.name}
+                      {selectedStoreObj.name}
                     </div>
                     <div className="text-[11px] text-neutral-400 mt-0.5">
                       Coordinates: {selectedStoreObj.latitude.toFixed(4)}, {selectedStoreObj.longitude.toFixed(4)} | Landmass: {isPeninsular(selectedStoreObj.longitude) ? 'Peninsular Malaysia' : 'East Malaysia (Borneo)'}
@@ -670,8 +695,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   <table className="w-full text-left text-xs border border-neutral-800">
                     <thead className="bg-neutral-900 uppercase text-[10px] text-neutral-400 border-b border-neutral-800">
                       <tr>
-                        <th className="p-2">Product SKU</th>
-                        <th className="p-2">Commodity Description</th>
+                        <th className="p-2">Product Name</th>
                         <th className="p-2 text-right">Requested</th>
                         <th className="p-2 text-right">Delivered</th>
                         <th className="p-2 text-right">Shortfall</th>
@@ -683,13 +707,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                       {Object.entries(selectedStoreObj.requests).map(([pid, req]) => {
                         const deliv = (deliveredByStore.get(selectedStoreObj.store_id) || {})[pid] || 0;
                         const shortfall = Math.max(0, req - deliv);
-                        const pInfo = productMap.get(pid);
+                        const prodName = getProductName(pid);
                         const sources = (supplyingWarehousesForStore.get(selectedStoreObj.store_id)?.get(pid)) || [];
 
                         return (
                           <tr key={pid} className="hover:bg-neutral-950">
-                            <td className="p-2 font-bold">P{pid}</td>
-                            <td className="p-2 text-neutral-300">{pInfo?.name || `Product SKU ${pid}`}</td>
+                            <td className="p-2 font-bold text-white">{prodName}</td>
                             <td className="p-2 text-right font-bold">{req}</td>
                             <td className="p-2 text-right font-bold text-emerald-400">{deliv}</td>
                             <td className={`p-2 text-right font-bold ${shortfall > 0 ? 'text-red-400' : 'text-neutral-500'}`}>
@@ -700,7 +723,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                                 <div className="space-y-0.5">
                                   {sources.map((s, idx) => (
                                     <div key={idx} className="text-[11px]">
-                                      &bull; {s.whName} (W{s.whId}): <strong>{s.qty} units</strong>
+                                      &bull; {s.whName}: <strong>{s.qty} units</strong>
                                     </div>
                                   ))}
                                 </div>
@@ -733,7 +756,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 <div className="flex flex-wrap items-center justify-between gap-2 bg-black p-3 border border-neutral-800">
                   <div>
                     <div className="text-xs font-bold text-white uppercase">
-                      Warehouse W{selectedWarehouseObj.warehouse_id}: {selectedWarehouseObj.name}
+                      {selectedWarehouseObj.name}
                     </div>
                     <div className="text-[11px] text-neutral-400 mt-0.5">
                       Coordinates: {selectedWarehouseObj.latitude.toFixed(4)}, {selectedWarehouseObj.longitude.toFixed(4)} | Modality:{' '}
@@ -754,8 +777,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   <table className="w-full text-left text-xs border border-neutral-800">
                     <thead className="bg-neutral-900 uppercase text-[10px] text-neutral-400 border-b border-neutral-800">
                       <tr>
-                        <th className="p-2">Product SKU</th>
-                        <th className="p-2">Commodity Description</th>
+                        <th className="p-2">Product Name</th>
                         <th className="p-2 text-right">Initial Inventory</th>
                         <th className="p-2 text-right">Dispatched</th>
                         <th className="p-2 text-right">Remaining Reserve</th>
@@ -767,6 +789,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                       {Object.entries(selectedWarehouseObj.inventory).map(([pid, init]) => {
                         const dispatched = (allocatedByWarehouse.get(selectedWarehouseObj.warehouse_id) || {})[pid] || 0;
                         const remaining = Math.max(0, init - dispatched);
+                        const prodName = getProductName(pid);
                         const pInfo = productMap.get(pid);
                         const thresh = pInfo?.threshold ?? 15;
                         const isOut = remaining === 0;
@@ -774,8 +797,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
                         return (
                           <tr key={pid} className="hover:bg-neutral-950">
-                            <td className="p-2 font-bold">P{pid}</td>
-                            <td className="p-2 text-neutral-300">{pInfo?.name || `Product SKU ${pid}`}</td>
+                            <td className="p-2 font-bold text-white">{prodName}</td>
                             <td className="p-2 text-right font-bold">{init}</td>
                             <td className="p-2 text-right font-bold text-neutral-400">{dispatched}</td>
                             <td className={`p-2 text-right font-bold ${isOut ? 'text-red-400' : isLow ? 'text-amber-400' : 'text-emerald-400'}`}>

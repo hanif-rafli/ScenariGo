@@ -1,8 +1,9 @@
 from fastapi.testclient import TestClient
-from app.models.responses import SimulationRequest
-from app.models.flow import RouteType, AllocationStatus
+
 from app.core.stage3_network_flow import solve_network_flow
 from app.data.presets import get_deficit_preset
+from app.models.flow import RouteType
+from app.models.responses import SimulationRequest
 
 
 def test_baseline_circulation_feasible(baseline_scenario: SimulationRequest):
@@ -30,7 +31,10 @@ def test_baseline_circulation_feasible(baseline_scenario: SimulationRequest):
     assert p2_alloc.distance_km == 1510.4
 
     # Verify highway allocations in Peninsular
-    p0_shah_alam = next((a for a in result.allocations if a.product_id == "0" and "Shah Alam" in a.target_name), None)
+    p0_shah_alam = next(
+        (a for a in result.allocations if a.product_id == "0" and "Shah Alam" in a.target_name),
+        None,
+    )
     assert p0_shah_alam is not None
     assert p0_shah_alam.quantity == 25
     assert p0_shah_alam.route_type == RouteType.DIRECT_HIGHWAY

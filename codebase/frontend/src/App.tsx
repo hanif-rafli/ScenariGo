@@ -128,14 +128,6 @@ export function App() {
     }
   };
 
-  const handleSelectWarehouse = (warehouseId: number) => {
-    const warehouse = scenario.warehouses.find((w) => w.warehouse_id === warehouseId);
-    if (warehouse) {
-      setPanTarget([warehouse.latitude, warehouse.longitude]);
-      setActiveView('simulator');
-    }
-  };
-
   const runEvaluation = useCallback(async (targetScenario: SimulationRequest, currentFleet?: TruckInstance[]) => {
     setLoading(true);
     try {
@@ -370,8 +362,6 @@ export function App() {
             flowResult={flowResult}
             stage4Result={stage4Result}
             fleet={fleet}
-            onSelectStore={handleSelectStore}
-            onSelectWarehouse={handleSelectWarehouse}
           />
         )}
 

@@ -1,7 +1,8 @@
 from fastapi import APIRouter
-from app.models.responses import SimulationRequest
-from app.models.flow import Stage3Result
+
 from app.core.stage3_network_flow import solve_network_flow
+from app.models.flow import Stage3Result
+from app.models.responses import SimulationRequest
 
 router = APIRouter()
 

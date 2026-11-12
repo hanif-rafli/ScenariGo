@@ -1,19 +1,18 @@
 """SQLite Database Persistence Layer for ScenariGo Scenarios & Master Data."""
 
+import json
 import os
 import sqlite3
-import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
-from app.models.responses import SimulationRequest, ScenarioSummary
 from app.data.presets import (
+    get_air_freight_preset,
     get_bobs_stationery_preset,
     get_deficit_preset,
-    get_air_freight_preset,
     get_tri_port_preset,
 )
+from app.models.responses import ScenarioSummary, SimulationRequest
 
 
 def get_db_path() -> str:
@@ -66,10 +65,12 @@ def init_db() -> None:
                 ("tri-port", get_tri_port_preset(), False),
             ]
 
-            now_iso = datetime.now(timezone.utc).isoformat()
+            now_iso = datetime.now(UTC).isoformat()
 
             # If no active scenario exists at all, make the first one active
-            active_count = conn.execute("SELECT COUNT(*) as c FROM scenarios WHERE is_active = 1").fetchone()["c"]
+            active_count = conn.execute(
+                "SELECT COUNT(*) as c FROM scenarios WHERE is_active = 1"
+            ).fetchone()["c"]
 
             for pid, preset_obj, default_active in presets_to_seed:
                 if pid not in existing_presets:
@@ -134,7 +135,7 @@ def list_scenarios() -> list[ScenarioSummary]:
         conn.close()
 
 
-def get_scenario(scenario_id: str) -> Optional[SimulationRequest]:
+def get_scenario(scenario_id: str) -> SimulationRequest | None:
     """Fetches a scenario by ID."""
     init_db()
     conn = get_connection()
@@ -181,13 +182,13 @@ def create_scenario(scenario: SimulationRequest) -> SimulationRequest:
     init_db()
     conn = get_connection()
     try:
-        scen_id = scenario.scenario_id or f"custom-{int(datetime.now(timezone.utc).timestamp())}"
+        scen_id = scenario.scenario_id or f"custom-{int(datetime.now(UTC).timestamp())}"
         scenario.scenario_id = scen_id
         scenario.is_preset = False
         scenario.is_modified = False
 
         raw_json = json.dumps(scenario.model_dump())
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
 
         with conn:
             # Set all other scenarios inactive
@@ -224,7 +225,7 @@ def update_scenario(scenario_id: str, updated: SimulationRequest) -> SimulationR
         updated.is_modified = is_mod
 
         raw_json = json.dumps(updated.model_dump())
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
 
         with conn:
             conn.execute(
@@ -274,7 +275,7 @@ def reset_preset_scenario(scenario_id: str) -> SimulationRequest:
             raise ValueError(f"Scenario '{scenario_id}' is not a preset; cannot reset.")
 
         baseline = row["baseline_json"]
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         with conn:
             conn.execute(
                 """
@@ -316,7 +317,9 @@ def delete_scenario(scenario_id: str) -> bool:
             conn.execute("DELETE FROM scenarios WHERE scenario_id = ?", (scenario_id,))
             if was_active:
                 # Fall back to activating Bob's stationery
-                conn.execute("UPDATE scenarios SET is_active = 1 WHERE scenario_id = 'bob-stationery'")
+                conn.execute(
+                    "UPDATE scenarios SET is_active = 1 WHERE scenario_id = 'bob-stationery'"
+                )
         return True
     finally:
         conn.close()

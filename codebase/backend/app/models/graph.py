@@ -1,11 +1,12 @@
 from enum import IntEnum
+
 from pydantic import BaseModel, Field
 
 
 class Modality(IntEnum):
-    LAND = 0       # Highway / road network (truck traversable)
-    MARITIME = 1   # Intermodal ocean shipping lane (port-to-port)
-    AIR = 2        # Air freight corridor (airport-to-airport)
+    LAND = 0  # Highway / road network (truck traversable)
+    MARITIME = 1  # Intermodal ocean shipping lane (port-to-port)
+    AIR = 2  # Air freight corridor (airport-to-airport)
 
 
 class NetworkEdge(BaseModel):

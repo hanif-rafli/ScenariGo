@@ -8,9 +8,10 @@ Eliminates naive direct chords cutting across mountains and landmasses:
    and entering Kuching via the Muara Tebas deepwater channel. Never intersects land.
 """
 
+import json
 import math
 import urllib.request
-import json
+
 
 def haversine_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Calculates great-circle distance between two GPS coordinates in kilometers."""
@@ -19,9 +20,7 @@ def haversine_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) ->
     dlon = math.radians(lon2 - lon1)
     a = (
         math.sin(dlat / 2.0) ** 2
-        + math.cos(math.radians(lat1))
-        * math.cos(math.radians(lat2))
-        * math.sin(dlon / 2.0) ** 2
+        + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2.0) ** 2
     )
     c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
     return radius_km * c
@@ -123,7 +122,7 @@ HIGHWAY_PENANG_TO_IPOH_WAYPOINTS: list[tuple[float, float]] = [
     (4.60342, 101.07704),
     (4.59833, 101.07879),
     (4.59614, 101.08663),
-    (4.59748, 101.0901)
+    (4.59748, 101.0901),
 ]
 
 HIGHWAY_IPOH_TO_KL_WAYPOINTS: list[tuple[float, float]] = [
@@ -260,7 +259,7 @@ HIGHWAY_IPOH_TO_KL_WAYPOINTS: list[tuple[float, float]] = [
     (3.15514, 101.67166),
     (3.14126, 101.68017),
     (3.13903, 101.68296),
-    (3.13872, 101.68691)
+    (3.13872, 101.68691),
 ]
 
 HIGHWAY_KL_TO_SHAH_ALAM_WAYPOINTS: list[tuple[float, float]] = [
@@ -281,7 +280,7 @@ HIGHWAY_KL_TO_SHAH_ALAM_WAYPOINTS: list[tuple[float, float]] = [
     (3.06641, 101.52144),
     (3.06561, 101.51924),
     (3.06438, 101.51973),
-    (3.07384, 101.51848)
+    (3.07384, 101.51848),
 ]
 
 HIGHWAY_KUCHING_PORT_TO_CITY_WAYPOINTS: list[tuple[float, float]] = [
@@ -294,7 +293,7 @@ HIGHWAY_KUCHING_PORT_TO_CITY_WAYPOINTS: list[tuple[float, float]] = [
     (1.55299, 110.338),
     (1.53319, 110.33697),
     (1.53251, 110.34007),
-    (1.53033, 110.33997)
+    (1.53033, 110.33997),
 ]
 
 HIGHWAY_KLIA_TO_SHAH_ALAM_WAYPOINTS: list[tuple[float, float]] = [
@@ -470,13 +469,16 @@ HIGHWAY_KLIA_TO_IPOH_WAYPOINTS: list[tuple[float, float]] = [
     (4.5975, 101.0901),
 ]
 
-HIGHWAY_BUTTERWORTH_TO_IPOH_WAYPOINTS: list[tuple[float, float]] = [
-    (5.4120, 100.3700),  # North Butterworth Container Terminal (NBCT)
-    (5.4050, 100.3760),
-    (5.3950, 100.3840),
-    (5.3780, 100.3920),
-    (5.36691, 100.39858),
-] + HIGHWAY_PENANG_TO_IPOH_WAYPOINTS[11:]
+HIGHWAY_BUTTERWORTH_TO_IPOH_WAYPOINTS: list[tuple[float, float]] = (
+    [
+        (5.4120, 100.3700),  # North Butterworth Container Terminal (NBCT)
+        (5.4050, 100.3760),
+        (5.3950, 100.3840),
+        (5.3780, 100.3920),
+        (5.36691, 100.39858),
+    ]
+    + HIGHWAY_PENANG_TO_IPOH_WAYPOINTS[11:]
+)
 
 HIGHWAY_PORT_KLANG_TO_SHAH_ALAM_WAYPOINTS: list[tuple[float, float]] = [
     (2.9985, 101.3928),  # Port Klang Gateway (Westports / Northport)
@@ -568,7 +570,7 @@ MARITIME_PENANG_TO_KUCHING_WAYPOINTS: list[tuple[float, float]] = [
     (1.66, 110.46),
     (1.59, 110.42),
     (1.56, 110.38),
-    (1.5533, 110.3592)
+    (1.5533, 110.3592),
 ]
 
 MARITIME_PORT_KLANG_TO_KUCHING_WAYPOINTS: list[tuple[float, float]] = [
@@ -594,7 +596,7 @@ MARITIME_PORT_KLANG_TO_KUCHING_WAYPOINTS: list[tuple[float, float]] = [
     (1.66, 110.46),
     (1.59, 110.42),
     (1.56, 110.38),
-    (1.5533, 110.3592)
+    (1.5533, 110.3592),
 ]
 
 MARITIME_PTP_JOHOR_TO_KUCHING_WAYPOINTS: list[tuple[float, float]] = [
@@ -662,7 +664,7 @@ def fetch_dynamic_road_path(
     timeout_s: float = 1.5,
 ) -> tuple[list[tuple[float, float]], float]:
     """Fetches real-world driving geometry from OSRM for dynamic custom coordinates.
-    
+
     Falls back gracefully to interpolated road coordinates if offline or timeout.
     """
     cache_key = f"{c1[0]:.4f},{c1[1]:.4f}_{c2[0]:.4f},{c2[1]:.4f}"

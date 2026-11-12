@@ -1,11 +1,12 @@
 from fastapi import APIRouter
-from app.models.responses import SimulationRequest
+
 from app.data.presets import (
+    get_air_freight_preset,
     get_bobs_stationery_preset,
     get_deficit_preset,
-    get_air_freight_preset,
     get_tri_port_preset,
 )
+from app.models.responses import SimulationRequest
 
 router = APIRouter()
 

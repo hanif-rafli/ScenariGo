@@ -6,33 +6,28 @@ Solves the physical fleet assignment and routing problem using:
 3. Bipartite Min-Cost Matching for vehicle-task assignment.
 4. Transport budget cap summation against economic parameters.
 """
-from collections import defaultdict
-import math
-from typing import Optional
 
-from app.models.entities import Warehouse, Store, EconomicParameters, ProductItem
+import math
+from typing import Any
+
+from app.core.stage2_reachability import evaluate_reachability, get_corridor_waypoints
+from app.data.malaysia_rr_stations import find_nearest_rr_station
+from app.models.entities import EconomicParameters, ProductItem, Store, Warehouse
+from app.models.fleet import (
+    DispatchItinerary,
+    RefuelingStop,
+    Stage4Result,
+    TripLeg,
+    TripLegType,
+    TruckInstance,
+)
+from app.models.flow import AllocationItem, AllocationStatus, RouteType
 from app.models.graph import Modality
-from app.models.flow import AllocationItem, RouteType, AllocationStatus
 from app.models.graph_trace import (
-    GraphNode,
     GraphEdgeSnapshot,
     GraphIterationStep,
+    GraphNode,
     NetworkFlowGraphTrace,
-)
-from app.models.fleet import (
-    TripLegType,
-    RefuelingStop,
-    TripLeg,
-    DispatchItinerary,
-    TruckInstance,
-    Stage4Result,
-)
-from app.core.stage2_reachability import evaluate_reachability, get_corridor_waypoints
-from app.data.malaysia_rr_stations import PLUS_RR_STATIONS, find_nearest_rr_station
-from app.data.malaysia_network import (
-    HIGHWAY_PENANG_TO_IPOH_WAYPOINTS,
-    HIGHWAY_IPOH_TO_KL_WAYPOINTS,
-    HIGHWAY_KL_TO_SHAH_ALAM_WAYPOINTS,
 )
 
 
@@ -63,7 +58,9 @@ def get_default_fleet(warehouses: list[Warehouse]) -> list[TruckInstance]:
     penang_name = penang_wh.name if penang_wh else "Penang Logistics Dep"
     penang_coords = (penang_wh.latitude, penang_wh.longitude) if penang_wh else (5.4164, 100.3327)
     kuching_name = kuching_wh.name if kuching_wh else "Kuching Transshipment"
-    kuching_coords = (kuching_wh.latitude, kuching_wh.longitude) if kuching_wh else (1.5533, 110.3592)
+    kuching_coords = (
+        (kuching_wh.latitude, kuching_wh.longitude) if kuching_wh else (1.5533, 110.3592)
+    )
 
     fleet = [
         TruckInstance(
@@ -158,7 +155,7 @@ def get_default_fleet(warehouses: list[Warehouse]) -> list[TruckInstance]:
 
 def hungarian_min_cost_assignment(cost_matrix: list[list[float]]) -> list[tuple[int, int]]:
     """O(V^3) Kuhn-Munkres (Hungarian) Min-Cost Bipartite Matching in pure Python.
-    
+
     Guarantees exact minimum fuel cost matching for rectangular matrices (trucks != tasks)
     by square padding with zero-cost dummy tasks/trucks and finite Big-M bounding.
     """
@@ -166,7 +163,9 @@ def hungarian_min_cost_assignment(cost_matrix: list[list[float]]) -> list[tuple[
         return []
     n_rows, n_cols = len(cost_matrix), len(cost_matrix[0])
     dim = max(n_rows, n_cols)
-    finite_costs = [cost_matrix[r][c] for r in range(n_rows) for c in range(n_cols) if cost_matrix[r][c] < 1e7]
+    finite_costs = [
+        cost_matrix[r][c] for r in range(n_rows) for c in range(n_cols) if cost_matrix[r][c] < 1e7
+    ]
     max_c = max(finite_costs) if finite_costs else 1000.0
     big_m = max_c * dim * 10.0 + 10000.0
 
@@ -234,10 +233,10 @@ def solve_fleet_routing(
     allocations: list[AllocationItem],
     warehouses: list[Warehouse],
     stores: list[Store],
-    fleet: Optional[list[TruckInstance]] = None,
-    budget_cap_myr: Optional[float] = None,
-    economic_parameters: Optional[EconomicParameters] = None,
-    products: Optional[list[ProductItem]] = None,
+    fleet: list[TruckInstance] | None = None,
+    budget_cap_myr: float | None = None,
+    economic_parameters: EconomicParameters | None = None,
+    products: list[ProductItem] | None = None,
 ) -> Stage4Result:
     """Executes Stage 4 Fleet Routing, Range Checking, and Budget Verification."""
     if economic_parameters is None:
@@ -361,14 +360,19 @@ def solve_fleet_routing(
 
             # Calculate Deadhead Leg (Truck Base -> Pickup Warehouse)
             deadhead_dist = haversine_km(
-                truck.current_coords[0], truck.current_coords[1],
-                pickup_coords[0], pickup_coords[1]
+                truck.current_coords[0], truck.current_coords[1], pickup_coords[0], pickup_coords[1]
             )
 
             # Calculate Haul Leg (Pickup Warehouse -> Delivery Store)
-            haul_dist = task.distance_km if task.distance_km > 0 else haversine_km(
-                pickup_coords[0], pickup_coords[1],
-                target_store.latitude, target_store.longitude
+            haul_dist = (
+                task.distance_km
+                if task.distance_km > 0
+                else haversine_km(
+                    pickup_coords[0],
+                    pickup_coords[1],
+                    target_store.latitude,
+                    target_store.longitude,
+                )
             )
 
             total_dist = round(deadhead_dist + haul_dist, 1)
@@ -385,8 +389,12 @@ def solve_fleet_routing(
                 rr = find_nearest_rr_station(mid_lat, mid_lon)
 
                 # Recalculate haul distance with R&R detour
-                d1 = haversine_km(pickup_coords[0], pickup_coords[1], rr["latitude"], rr["longitude"])
-                d2 = haversine_km(rr["latitude"], rr["longitude"], target_store.latitude, target_store.longitude)
+                d1 = haversine_km(
+                    pickup_coords[0], pickup_coords[1], rr["latitude"], rr["longitude"]
+                )
+                d2 = haversine_km(
+                    rr["latitude"], rr["longitude"], target_store.latitude, target_store.longitude
+                )
                 refuel_detour_km = round((d1 + d2) - haul_dist, 1)
                 total_dist = round(deadhead_dist + haul_dist + max(0.0, refuel_detour_km), 1)
 
@@ -398,12 +406,16 @@ def solve_fleet_routing(
                         highway_name=rr["highway"],
                         coords=(rr["latitude"], rr["longitude"]),
                         liters_refueled=round(liters_burned_before, 1),
-                        cost_myr=round(liters_burned_before * economic_parameters.fuel_price_myr_per_liter, 2),
+                        cost_myr=round(
+                            liters_burned_before * economic_parameters.fuel_price_myr_per_liter, 2
+                        ),
                     )
                 )
 
             total_fuel_liters = round(total_dist / truck.fuel_economy_kmpl, 2)
-            total_fuel_cost = round(total_fuel_liters * economic_parameters.fuel_price_myr_per_liter, 2)
+            total_fuel_cost = round(
+                total_fuel_liters * economic_parameters.fuel_price_myr_per_liter, 2
+            )
 
             cost_matrix[t_idx][k_idx] = total_fuel_cost
             task_metadata[(t_idx, k_idx)] = {
@@ -494,7 +506,7 @@ def solve_fleet_routing(
         }
 
     for t_idx, truck in enumerate(fleet):
-        for k_idx, task in enumerate(land_tasks):
+        for k_idx, _task in enumerate(land_tasks):
             if cost_matrix[t_idx][k_idx] < 1e8:
                 e_id = f"TRK_{truck.truck_id}->TASK_{k_idx + 1}"
                 base_edges_dict[e_id] = {
@@ -505,7 +517,7 @@ def solve_fleet_routing(
                     "edge_type": "ASSIGNMENT_CANDIDATE",
                 }
 
-    for k_idx, task in enumerate(land_tasks):
+    for k_idx, _task in enumerate(land_tasks):
         e_id = f"TASK_{k_idx + 1}->SNK"
         base_edges_dict[e_id] = {
             "source": f"TASK_{k_idx + 1}",
@@ -515,7 +527,9 @@ def solve_fleet_routing(
             "edge_type": "TASK_FULFILLMENT",
         }
 
-    def make_mcmf_snapshot(flow_state: dict[str, int], active_path: set[str]) -> list[GraphEdgeSnapshot]:
+    def make_mcmf_snapshot(
+        flow_state: dict[str, int], active_path: set[str]
+    ) -> list[GraphEdgeSnapshot]:
         snapshots: list[GraphEdgeSnapshot] = []
         for e_id, info in base_edges_dict.items():
             f = flow_state.get(e_id, 0)
@@ -625,9 +639,13 @@ def solve_fleet_routing(
                     destination_name=task.source_name,
                     destination_coords=meta["pickup_coords"],
                     distance_km=deadhead_km if deadhead_km > 0 else meta["deadhead_dist"],
-                    transit_hours=round((deadhead_km if deadhead_km > 0 else meta["deadhead_dist"]) / 60.0, 1),
+                    transit_hours=round(
+                        (deadhead_km if deadhead_km > 0 else meta["deadhead_dist"]) / 60.0, 1
+                    ),
                     fuel_burned_liters=deadhead_liters,
-                    fuel_cost_myr=round(deadhead_liters * economic_parameters.fuel_price_myr_per_liter, 2),
+                    fuel_cost_myr=round(
+                        deadhead_liters * economic_parameters.fuel_price_myr_per_liter, 2
+                    ),
                     path_coordinates=deadhead_pts,
                 )
             )
@@ -656,7 +674,9 @@ def solve_fleet_routing(
                 transit_hours=round(meta["haul_dist"] / 65.0, 1),
                 fuel_burned_liters=haul_liters,
                 fuel_cost_myr=round(haul_liters * economic_parameters.fuel_price_myr_per_liter, 2),
-                path_coordinates=haul_pts if haul_pts else [meta["pickup_coords"], (target_store.latitude, target_store.longitude)],
+                path_coordinates=haul_pts
+                if haul_pts
+                else [meta["pickup_coords"], (target_store.latitude, target_store.longitude)],
             )
         )
 
@@ -692,13 +712,17 @@ def solve_fleet_routing(
     total_maritime_cost = 0.0
     for alloc in maritime_allocations:
         weight_kg = alloc.quantity * 20.0
-        sea_cost = economic_parameters.intermodal_sea_base_fee_myr + (weight_kg * economic_parameters.intermodal_sea_per_kg_myr)
+        sea_cost = economic_parameters.intermodal_sea_base_fee_myr + (
+            weight_kg * economic_parameters.intermodal_sea_per_kg_myr
+        )
         total_maritime_cost += sea_cost
 
     total_air_cost = 0.0
     for alloc in air_allocations:
         weight_kg = alloc.quantity * 20.0
-        air_cost = economic_parameters.intermodal_air_base_fee_myr + (weight_kg * economic_parameters.intermodal_air_per_kg_myr)
+        air_cost = economic_parameters.intermodal_air_base_fee_myr + (
+            weight_kg * economic_parameters.intermodal_air_per_kg_myr
+        )
         total_air_cost += air_cost
 
     total_maritime_cost = round(total_maritime_cost, 2)
